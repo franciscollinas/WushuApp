@@ -13,6 +13,7 @@ import {
   MessageCircle,
   UserCog,
   LogOut,
+  CircleDollarSign,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ const NAV_ADMIN = [
   { href: "/grupos", label: "Grupos", icon: Building2 },
   { href: "/asistencia", label: "Asistencia", icon: ClipboardCheck },
   { href: "/pagos", label: "Pagos", icon: Wallet },
+  { href: "/deudas", label: "Deudas", icon: CircleDollarSign },
   { href: "/evaluaciones", label: "Evaluaciones", icon: Award },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
   { href: "/eventos", label: "Eventos", icon: CalendarDays },
@@ -41,6 +43,10 @@ const NAV_ENTRENADOR = [
   { href: "/asistencia", label: "Asistencia", icon: ClipboardCheck },
 ];
 
+const NAV_PADRE = [
+  { href: "/portal", label: "Mi Portal", icon: Users },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -49,9 +55,11 @@ export default function Sidebar() {
   const rol = mi?.usuario.rol;
   const navItems = !mi
     ? []
-    : rol === "entrenador"
-      ? NAV_ENTRENADOR
-      : NAV_ADMIN;
+    : rol === "padre"
+      ? NAV_PADRE
+      : rol === "entrenador"
+        ? NAV_ENTRENADOR
+        : NAV_ADMIN;
 
   const [cerrando, setCerrando] = useState(false);
 

@@ -37,9 +37,16 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/login") {
     if (user) {
       const usuario = await obtenerUsuarioRow(supabase, user.id);
-      return usuario
-        ? NextResponse.redirect(new URL(usuario.rol === "admin" ? "/" : "/asistencia", request.url))
-        : supabaseResponse;
+      if (usuario) {
+        const destino =
+          usuario.rol === "admin"
+            ? "/"
+            : usuario.rol === "padre"
+            ? "/portal"
+            : "/asistencia";
+        return NextResponse.redirect(new URL(destino, request.url));
+      }
+      return supabaseResponse;
     }
     return supabaseResponse;
   }
@@ -51,7 +58,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (usuario.rol === "entrenador") {
+  if (usuario.rol === "padre") {
+    // Los padres solo tienen acceso a su portal
+    if (pathname !== "/portal" && !pathname.startsWith("/portal/")) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
+  } else if (usuario.rol === "entrenador") {
     // La vista principal del entrenador es /asistencia: fuera de las rutas de
     // consulta alumnos/grupos y asistencia, se redirige allí.
     const permitida = ENTRENADOR_PERMITIDAS.some(

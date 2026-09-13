@@ -141,7 +141,7 @@ export interface EvaluacionConAlumno extends EvaluacionRow {
   alumno: AlumnoRow | null;
 }
 
-export type RolUsuario = "admin" | "entrenador";
+export type RolUsuario = "admin" | "entrenador" | "padre";
 
 export interface UsuarioRow {
   id: string;
@@ -149,4 +149,56 @@ export interface UsuarioRow {
   email: string;
   rol: RolUsuario;
   created_at: string;
+}
+
+export interface AlumnoPadreRow {
+  id: string;
+  escuela_id: string;
+  alumno_id: string;
+  usuario_id: string;
+  created_at: string;
+}
+
+export interface DeudaRow {
+  id: string;
+  escuela_id: string;
+  nombre: string;
+  descripcion: string | null;
+  fecha_creacion: string;
+  created_at: string;
+}
+
+export type EstadoDeudaAlumno = "pendiente" | "parcial" | "pagado";
+
+export interface DeudaAlumnoRow {
+  id: string;
+  escuela_id: string;
+  deuda_id: string;
+  alumno_id: string;
+  monto_total: number;
+  monto_pagado: number;
+  estado: EstadoDeudaAlumno;
+  created_at: string;
+}
+
+export interface DeudaAlumnoPagoRow {
+  id: string;
+  escuela_id: string;
+  deuda_alumno_id: string;
+  monto: number;
+  fecha: string;
+  nota: string | null;
+  created_at: string;
+}
+
+export interface DeudaConTotales extends DeudaRow {
+  total_asignado: number;
+  total_pagado: number;
+  alumnos_count: number;
+}
+
+export interface DeudaAlumnoConDetalle extends DeudaAlumnoRow {
+  alumno: AlumnoRow;
+  deuda?: DeudaRow;
+  pagos?: DeudaAlumnoPagoRow[];
 }
