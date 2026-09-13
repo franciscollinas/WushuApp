@@ -96,7 +96,6 @@ const herramientas: Herramienta[] = [
             mes: { type: "string", description: "Mes en formato YYYY-MM. Si se omite, el mes actual." },
             min_faltas: { type: "number", description: "Mínimo de faltas a filtrar. Por defecto 3." },
           },
-          additionalProperties: false,
         },
       },
     },
@@ -228,10 +227,17 @@ const herramientas: Herramienta[] = [
         parameters: {
           type: "object",
           properties: {
-            categoria: { type: "string", enum: ["calentamiento", "tecnica", "fisico", "actitud"] },
-            dificultad: { type: "string", enum: ["basica", "intermedia", "avanzada"] },
+            categoria: {
+              type: "string",
+              description:
+                "Categoría opcional: calentamiento, tecnica, fisico, actitud. No incluyas si no deseas filtrar.",
+            },
+            dificultad: {
+              type: "string",
+              description:
+                "Dificultad opcional: basica, intermedia, avanzada. No incluyas si no deseas filtrar.",
+            },
           },
-          additionalProperties: false,
         },
       },
     },
