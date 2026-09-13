@@ -105,8 +105,10 @@ export const asistenciaRouter = router({
     .input(z.object({ mes: z.string() }))
     .query(async ({ input }): Promise<AlumnoConFaltas[]> => {
       const escuelaId = await getEscuelaId();
+      const [año, m] = input.mes.split("-").map(Number);
+      const ultimoDia = new Date(año, m, 0).getDate();
       const inicio = `${input.mes}-01`;
-      const fin = `${input.mes}-31`;
+      const fin = `${input.mes}-${String(ultimoDia).padStart(2, "0")}`;
 
       const { data: sesiones, error: sErr } = await supabase
         .from("sesion")

@@ -20,6 +20,15 @@ const mesActual = () => {
   return `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, "0")}`;
 };
 
+const rangoMes = (mes: string) => {
+  const [año, m] = mes.split("-").map(Number);
+  const ultimoDia = new Date(año, m, 0).getDate();
+  return {
+    inicio: `${mes}-01`,
+    fin: `${mes}-${String(ultimoDia).padStart(2, "0")}`,
+  };
+};
+
 const herramientas: Herramienta[] = [
   {
     definicion: {
@@ -32,10 +41,8 @@ const herramientas: Herramienta[] = [
       },
     },
     ejecutar: async (_args, escuelaId) => {
-      const hoy = new Date();
-      const mes = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
-      const inicio = `${mes}-01`;
-      const fin = `${mes}-31`;
+      const mes = mesActual();
+      const { inicio, fin } = rangoMes(mes);
 
       const [
         { data: alumnos },
@@ -102,8 +109,7 @@ const herramientas: Herramienta[] = [
     ejecutar: async (args, escuelaId) => {
       const mes = (args.mes as string) || mesActual();
       const min = (args.min_faltas as number) || 3;
-      const inicio = `${mes}-01`;
-      const fin = `${mes}-31`;
+      const { inicio, fin } = rangoMes(mes);
 
       const { data: sesiones, error: sErr } = await supabase
         .from("sesion")

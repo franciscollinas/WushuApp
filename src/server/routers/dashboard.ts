@@ -1,15 +1,17 @@
+import { z } from "zod";
 import { supabase } from "@/lib/supabase";
-import { getEscuelaId } from "@/lib/tenant";
 import { adminProcedure, router } from "../trpc";
 import type { AlumnoRow, PagoRow, SesionRow } from "@/types/supabase";
 
 export const dashboardRouter = router({
   estadisticas: adminProcedure
-    .input((val: unknown): { mes: string } => val as { mes: string })
-    .query(async ({ input }) => {
-      const escuelaId = await getEscuelaId();
+    .input(z.object({ mes: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const escuelaId = ctx.usuario.escuela_id;
+      const [año, m] = input.mes.split("-").map(Number);
+      const ultimoDia = new Date(año, m, 0).getDate();
       const inicio = `${input.mes}-01`;
-      const fin = `${input.mes}-31`;
+      const fin = `${input.mes}-${String(ultimoDia).padStart(2, "0")}`;
 
       const [{ data: alumnos, error: alErr }, { data: pagos, error: pErr }, { data: sesiones, error: sErr }] =
         await Promise.all([

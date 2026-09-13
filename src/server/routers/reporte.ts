@@ -9,8 +9,10 @@ export const reporteRouter = router({
     .input(z.object({ alumno_id: z.string(), mes: z.string() }))
     .query(async ({ input }) => {
       const escuelaId = await getEscuelaId();
+      const [año, m] = input.mes.split("-").map(Number);
+      const ultimoDia = new Date(año, m, 0).getDate();
       const inicio = `${input.mes}-01`;
-      const fin = `${input.mes}-31`;
+      const fin = `${input.mes}-${String(ultimoDia).padStart(2, "0")}`;
 
       const { data: alumno, error: alErr } = await supabase
         .from("alumno")
