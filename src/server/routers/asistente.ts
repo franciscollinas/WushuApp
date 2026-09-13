@@ -272,14 +272,57 @@ const herramientas: Herramienta[] = [
         .order("fecha")
         .limit(10);
       if (error) return `Error consultando eventos: ${error.message}`;
-      return JSON.stringify({ eventos: data ?? [] as EventoRow[] });
+      return JSON.stringify({ eventos: (data ?? []) as EventoRow[] });
+    },
+  },
+  {
+    definicion: {
+      type: "function",
+      function: {
+        name: "consultar_deudas_y_prestamos",
+        description:
+          "Consulta las deudas por eventos, préstamos especiales (ej. dotaciones, torneos), montos asignados y saldos pendientes por alumno.",
+        parameters: { type: "object", properties: {} },
+      },
+    },
+    ejecutar: async (_args, escuelaId) => {
+      const { data: deudas } = await supabase
+        .from("deuda")
+        .select("nombre, descripcion, created_at")
+        .eq("escuela_id", escuelaId);
+
+      const { data: asignaciones } = await supabase
+        .from("deuda_alumno")
+        .select("monto_total, monto_pagado, estado, alumno(nombre)")
+        .eq("escuela_id", escuelaId);
+
+      const lista = (asignaciones ?? []).map((a: unknown) => {
+        const item = a as {
+          monto_total: number;
+          monto_pagado: number;
+          estado: string;
+          alumno: { nombre: string } | null;
+        };
+        return {
+          alumno: item.alumno?.nombre ?? "Desconocido",
+          montoTotal: item.monto_total,
+          montoPagado: item.monto_pagado,
+          saldo: Math.max(0, item.monto_total - item.monto_pagado),
+          estado: item.estado,
+        };
+      });
+
+      return JSON.stringify({
+        eventosDeudas: deudas ?? [],
+        deudasAlumnos: lista,
+      });
     },
   },
 ];
 
 const systemPrompt = `Eres Mantis, el asistente de inteligencia artificial de Mantis Box Sabanalarga, una escuela de artes marciales (estilo Mantis Box / Kung Fu) ubicada en Sabanalarga.
 
-Usas las herramientas disponibles para responder con datos REALES de la escuela (alumnos, grupos, asistencia, pagos, biblioteca de ejercicios, eventos). Nunca inventes cifras ni nombres: si no encuentras datos, dilo con honestidad y sugiere crearlos.
+Usas las herramientas disponibles para responder con datos REALES de la escuela (alumnos, grupos, asistencia, pagos, deudas por eventos/préstamos, biblioteca de ejercicios, eventos). Nunca inventes cifras ni nombres: si no encuentras datos, dilo con honestidad y sugiere crearlos.
 
 Reglas:
 - Responde SIEMPRE en español colombiano, claro y directo, como hablándole a un entrenador.
@@ -296,6 +339,52 @@ const mensajesARama = (
     content: m.contenido,
   }));
 
+function getAIClient(): { client: OpenAI; model: string } {
+  // 1. Groq (velocidad ultrarrápida, ideal para function calling)
+  const groqKey =
+    process.env.GROQ_API_KEY ||
+    (process.env.OPENAI_API_KEY?.startsWith("gsk_") ? process.env.OPENAI_API_KEY : undefined);
+  if (groqKey) {
+    return {
+      client: new OpenAI({
+        apiKey: groqKey,
+        baseURL: "https://api.groq.com/openai/v1",
+      }),
+      model: process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile",
+    };
+  }
+
+  // 2. OpenRouter (soporte multimodelo y alta compatibilidad)
+  const openrouterKey =
+    process.env.OPENROUTER_API_KEY ||
+    (process.env.OPENAI_API_KEY?.startsWith("sk-or-") ? process.env.OPENAI_API_KEY : undefined);
+  if (openrouterKey) {
+    return {
+      client: new OpenAI({
+        apiKey: openrouterKey,
+        baseURL: "https://openrouter.ai/api/v1",
+        defaultHeaders: {
+          "HTTP-Referer": "https://mantisbox.app",
+          "X-Title": "Mantis Box Manager",
+        },
+      }),
+      model: process.env.OPENROUTER_MODEL ?? "meta-llama/llama-3.3-70b-instruct",
+    };
+  }
+
+  // 3. OpenAI estándar
+  if (process.env.OPENAI_API_KEY) {
+    return {
+      client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
+      model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    };
+  }
+
+  throw new Error(
+    "No se ha configurado ninguna clave de API de IA (GROQ_API_KEY, OPENROUTER_API_KEY u OPENAI_API_KEY). Configúrala en .env.local o en Vercel."
+  );
+}
+
 export const asistenteRouter = router({
   chat: adminProcedure
     .input(
@@ -306,14 +395,7 @@ export const asistenteRouter = router({
     )
     .mutation(async ({ input }) => {
       const escuelaId = await getEscuelaId();
-      const apiKey = process.env.OPENAI_API_KEY;
-      if (!apiKey) {
-        throw new Error(
-          "OPENAI_API_KEY no está configurada. Añádela en .env.local para hablar con Mantis."
-        );
-      }
-
-      const openai = new OpenAI({ apiKey });
+      const { client: openai, model } = getAIClient();
       const tools = herramientas.map((h) => h.definicion);
 
       const historial: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
@@ -325,7 +407,7 @@ export const asistenteRouter = router({
 
       for (let i = 0; i < maxIteraciones; i++) {
         const respuesta = await openai.chat.completions.create({
-          model: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+          model,
           messages: [{ role: "system", content: systemPrompt }, ...historial],
           tools,
           tool_choice: "auto",
