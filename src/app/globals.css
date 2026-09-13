@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --rojo-mantis: #a62639;
+  --dorado: #c99a2e;
+  --amarillo-bandera: #f2c230;
+  --tinta: #1f1b16;
+  --fondo: #fbf8f3;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-mantis: var(--rojo-mantis);
+  --color-mantis-dark: #80202d;
+  --color-mantis-light: #e8c9ce;
+  --color-dorado: var(--dorado);
+  --color-ambar: var(--amarillo-bandera);
+  --color-tinta: var(--tinta);
+  --color-papel: var(--fondo);
+  --color-papel-claro: #ffffff;
+  --color-ok: #2f9e44;
+  --color-ok-claro: #e6f4ea;
+  --color-falta: #c92a2a;
+  --color-falta-claro: #fbecec;
+  --color-conteo-claro: #fff4e0;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-lx);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--fondo);
+  color: var(--tinta);
+  font-family: var(--font-lx), system-ui, sans-serif;
+}
+
+input[type="date"],
+input[type="time"],
+input[type="number"],
+input[type="text"],
+select {
+  font-family: inherit;
 }

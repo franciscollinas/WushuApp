@@ -1,69 +1,164 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { Users, Wallet, AlertTriangle, ClipboardCheck } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import KPI from "@/components/ui/KPI";
+import PageHeader from "@/components/PageHeader";
+import Badge from "@/components/ui/Badge";
+
+export default function DashboardPage() {
+  const hoy = new Date();
+  const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
+
+  const { data: stats, isLoading } = trpc.dashboard.estadisticas.useQuery({
+    mes: mesActual,
+  });
+  const { data: conFaltas } = trpc.asistencia.alumnosConFaltas.useQuery({
+    mes: mesActual,
+  });
+  const { data: pagos } = trpc.pago.listByMes.useQuery(mesActual);
+
+  const pendientes = (pagos ?? []).filter((p) => p.estado !== "pagado");
+  const { data: eventos } = trpc.evento.proximos.useQuery();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <PageHeader titulo="Dashboard" descripcion="Resumen de la escuela" />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KPI
+          label="Alumnos activos"
+          valor={isLoading ? "—" : String(stats?.alumnosActivos ?? 0)}
+          icono={<Users className="h-4 w-4 text-mantis" />}
+          detalle="Inscritos con estado activo"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <KPI
+          label="Ingresos del mes"
+          valor={isLoading ? "—" : `$${Number(stats?.ingresosMes ?? 0).toLocaleString("es-CO")}`}
+          icono={<Wallet className="h-4 w-4 text-ok" />}
+          detalle="Pagos marcados como pagado"
+        />
+        <KPI
+          label="Pagos pendientes"
+          valor={isLoading ? "—" : String(stats?.pagosPendientes ?? 0)}
+          icono={<AlertTriangle className="h-4 w-4 text-amber-600" />}
+          detalle="Pendientes y vencidos del mes"
+        />
+        <KPI
+          label="Asistencia promedio"
+          valor={isLoading ? "—" : `${stats?.asistenciaPromedio ?? 0}%`}
+          icono={<ClipboardCheck className="h-4 w-4 text-dorado" />}
+          detalle="Del mes en curso"
+        />
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-xl border border-tinta/10 bg-papel-claro">
+          <header className="border-b border-tinta/10 px-5 py-4">
+            <h2 className="font-bold text-tinta">Alertas de inasistencia</h2>
+            <p className="text-xs text-tinta/50">3+ faltas en el mes</p>
+          </header>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-tinta/10 text-left text-xs uppercase tracking-wide text-tinta/50">
+                <th className="px-5 py-2.5 font-semibold">Alumno</th>
+                <th className="px-5 py-2.5 font-semibold">Faltas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(conFaltas ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-5 py-8 text-center text-sm text-tinta/40">
+                    Sin alertas este mes
+                  </td>
+                </tr>
+              )}
+              {(conFaltas ?? []).map((c) => (
+                <tr key={c.alumno_id} className="border-b border-tinta/5 last:border-0">
+                  <td className="px-5 py-3 font-medium text-tinta">
+                    {c.alumno?.nombre ?? "—"}
+                  </td>
+                  <td className="px-5 py-3">
+                    <Badge variant="falta">{c.faltas} faltas</Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="overflow-hidden rounded-xl border border-tinta/10 bg-papel-claro">
+          <header className="border-b border-tinta/10 px-5 py-4">
+            <h2 className="font-bold text-tinta">Pagos pendientes del mes</h2>
+            <p className="text-xs text-tinta/50">Pendientes y vencidos</p>
+          </header>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-tinta/10 text-left text-xs uppercase tracking-wide text-tinta/50">
+                <th className="px-5 py-2.5 font-semibold">Alumno</th>
+                <th className="px-5 py-2.5 font-semibold">Monto</th>
+                <th className="px-5 py-2.5 font-semibold">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pendientes.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-5 py-8 text-center text-sm text-tinta/40">
+                    Todo al día
+                  </td>
+                </tr>
+              )}
+              {pendientes.map((p) => (
+                <tr key={p.id} className="border-b border-tinta/5 last:border-0">
+                  <td className="px-5 py-3 font-medium text-tinta">
+                    {p.alumno?.nombre ?? "—"}
+                  </td>
+                  <td className="px-5 py-3">${Number(p.monto).toLocaleString("es-CO")}</td>
+                  <td className="px-5 py-3">
+                    <Badge variant={p.estado === "vencido" ? "falta" : "estado"}>
+                      {p.estado}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <section className="mt-6 overflow-hidden rounded-xl border border-tinta/10 bg-papel-claro">
+        <header className="border-b border-tinta/10 px-5 py-4">
+          <h2 className="font-bold text-tinta">Próximos eventos</h2>
+          <p className="text-xs text-tinta/50">Nuevos exámenes, torneos y fechas</p>
+        </header>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-tinta/10 text-left text-xs uppercase tracking-wide text-tinta/50">
+              <th className="px-5 py-2.5 font-semibold">Fecha</th>
+              <th className="px-5 py-2.5 font-semibold">Evento</th>
+              <th className="px-5 py-2.5 font-semibold">Tipo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(eventos ?? []).length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-5 py-8 text-center text-sm text-tinta/40">
+                  Sin eventos próximos
+                </td>
+              </tr>
+            )}
+            {(eventos ?? []).map((e) => (
+              <tr key={e.id} className="border-b border-tinta/5 last:border-0">
+                <td className="px-5 py-3 font-medium text-tinta">{e.fecha}</td>
+                <td className="px-5 py-3 text-tinta/70">{e.nombre}</td>
+                <td className="px-5 py-3">
+                  <Badge variant="estado">{e.tipo}</Badge>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+    </>
   );
 }
