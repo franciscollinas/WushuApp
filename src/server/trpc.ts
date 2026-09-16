@@ -51,6 +51,24 @@ const isAdmin = t.middleware(({ ctx, next }) => {
   });
 });
 
+// Personal de la escuela (admin o entrenador). Impide que un padre acceda a
+// datos operativos o mutaciones (asistencia, alumnos, etc.) vía la API.
+const isStaff = t.middleware(({ ctx, next }) => {
+  if (!ctx.usuario || (ctx.usuario.rol !== "admin" && ctx.usuario.rol !== "entrenador")) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Necesitas ser administrador o entrenador para realizar esta acción.",
+    });
+  }
+  return next({
+    ctx: {
+      ...ctx,
+      usuario: ctx.usuario,
+    },
+  });
+});
+
 export const protectedProcedure = t.procedure.use(isAuthed);
+export const staffProcedure = t.procedure.use(isAuthed).use(isStaff);
 export const adminProcedure = t.procedure.use(isAuthed).use(isAdmin);
 export const createCallerFactory = t.createCallerFactory;

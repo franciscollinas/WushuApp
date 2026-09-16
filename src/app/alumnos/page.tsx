@@ -3,7 +3,7 @@
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -109,11 +109,20 @@ export default function AlumnosPage() {
     setModalAbierto(false);
   };
 
-  const filtrados = (alumnos ?? []).filter(
-    (a) =>
-      (!filtroGrupo || a.grupo_id === filtroGrupo) &&
-      (!filtroEstado || a.estado === filtroEstado) &&
-      (!filtroCategoria || a.categoria === filtroCategoria)
+  const filtrados = useMemo(
+    () =>
+      (alumnos ?? []).filter(
+        (a) =>
+          (!filtroGrupo || a.grupo_id === filtroGrupo) &&
+          (!filtroEstado || a.estado === filtroEstado) &&
+          (!filtroCategoria || a.categoria === filtroCategoria)
+      ),
+    [alumnos, filtroGrupo, filtroEstado, filtroCategoria]
+  );
+
+  const nombreGrupoPorId = useMemo(
+    () => new Map((grupos ?? []).map((g) => [g.id, g.nombre])),
+    [grupos]
   );
 
   return (
@@ -195,7 +204,7 @@ export default function AlumnosPage() {
                     <Badge variant="info">{a.nivel_cinta}</Badge>
                   </td>
                   <td className="px-4 py-3 text-tinta/70">
-                    {(grupos ?? []).find((g) => g.id === a.grupo_id)?.nombre ?? "—"}
+                    {nombreGrupoPorId.get(a.grupo_id ?? "") ?? "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={a.estado === "activo" ? "ok" : "estado"}>{a.estado}</Badge>

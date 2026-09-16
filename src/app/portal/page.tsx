@@ -11,23 +11,19 @@ import {
   CircleDollarSign,
   TrendingUp,
   CreditCard,
-  CheckCircle2,
-  AlertCircle,
-  Clock3,
-  Phone,
   Info,
 } from "lucide-react";
+
+const formateadorCOP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+const formatearCOP = (valor: number) => formateadorCOP.format(valor);
 
 export default function PortalPadrePage() {
   const { data: fichas, isLoading, error } = trpc.usuario.miFichaPadre.useQuery();
   const [hijoActivoIndex, setHijoActivoIndex] = useState(0);
-
-  const formatearCOP = (valor: number) =>
-    new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(valor);
 
   if (isLoading) {
     return (
@@ -338,14 +334,18 @@ export default function PortalPadrePage() {
           <div className="mt-6 flex flex-col items-center justify-center p-4">
             <div className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-mantis bg-mantis/10 shadow-inner">
               <span className="text-3xl font-black text-tinta">
-                {asistencia.porcentajeAsistencia}%
+                {asistencia.totalSesiones > 0 ? `${asistencia.porcentajeAsistencia}%` : "—"}
               </span>
             </div>
             <p className="mt-3 text-sm font-semibold text-tinta">
-              {asistencia.totalPresente} de {asistencia.totalSesiones} clases asistidas
+              {asistencia.totalSesiones > 0
+                ? `${asistencia.totalPresente} de ${asistencia.totalSesiones} clases asistidas`
+                : "Aún sin clases registradas"}
             </p>
             <p className="text-xs text-tinta/50">
-              {asistencia.porcentajeAsistencia >= 85
+              {asistencia.totalSesiones === 0
+                ? "Cuando se registren sesiones verás aquí el progreso de asistencia."
+                : asistencia.porcentajeAsistencia >= 85
                 ? "¡Excelente constancia y disciplina marcial!"
                 : "Se recomienda mayor regularidad en los entrenamientos."}
             </p>

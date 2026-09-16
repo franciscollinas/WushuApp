@@ -2,7 +2,7 @@
 
 import { MessageCircle, Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -48,13 +48,28 @@ export default function PagosPage() {
     onError: (e) => toast.error(e.message),
   });
   const marcarPagado = trpc.pago.marcarPagado.useMutation({
+    onMutate: async ({ id }) => {
+      await utils.pago.list.cancel();
+      const prevList = utils.pago.list.getData();
+      utils.pago.list.setData(undefined, (prev) =>
+        prev
+          ? prev.map((x) => (x.id === id ? { ...x, estado: "pagado" as const } : x))
+          : prev
+      );
+      return { prevList };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prevList) utils.pago.list.setData(undefined, ctx.prevList);
+      toast.error(e.message);
+    },
     onSuccess: () => {
       toast.success("Marcado como pagado");
+    },
+    onSettled: () => {
       utils.pago.list.invalidate();
       utils.pago.listByMes.invalidate();
       utils.dashboard.estadisticas.invalidate();
     },
-    onError: (e) => toast.error(e.message),
   });
   const eliminar = trpc.pago.delete.useMutation({
     onSuccess: () => {
@@ -70,9 +85,18 @@ export default function PagosPage() {
   const set = (k: keyof typeof vacio) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
 
-  const filtrados = (pagos ?? []).filter((p) => p.mes === mesFiltro);
-  const totalMes = filtrados.filter((p) => p.estado === "pagado").reduce((s, p) => s + p.monto, 0);
-  const soloPendientes = filtrados.filter((p) => p.estado !== "pagado");
+  const filtrados = useMemo(
+    () => (pagos ?? []).filter((p) => p.mes === mesFiltro),
+    [pagos, mesFiltro]
+  );
+  const totalMes = useMemo(
+    () => filtrados.filter((p) => p.estado === "pagado").reduce((s, p) => s + p.monto, 0),
+    [filtrados]
+  );
+  const soloPendientes = useMemo(
+    () => filtrados.filter((p) => p.estado !== "pagado"),
+    [filtrados]
+  );
 
   const guardar = () => {
     if (!form.alumno_id || form.monto <= 0) return;

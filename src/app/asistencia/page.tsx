@@ -30,11 +30,32 @@ export default function AsistenciaPage() {
   );
 
   const marcar = trpc.asistencia.marcarPresencia.useMutation({
-    onSuccess: () => {
+    onMutate: async ({ asistencia_id, presente }) => {
+      await utils.asistencia.listaConAsistencia.cancel({ grupo_id: grupoId, fecha });
+      const prev = utils.asistencia.listaConAsistencia.getData({ grupo_id: grupoId, fecha });
+      if (prev?.sesion) {
+        utils.asistencia.listaConAsistencia.setData({ grupo_id: grupoId, fecha }, {
+          ...prev,
+          sesion: {
+            ...prev.sesion,
+            asistencia: prev.sesion.asistencia.map((a) =>
+              a.id === asistencia_id ? { ...a, presente } : a
+            ),
+          },
+        });
+      }
+      return { prev };
+    },
+    onError: (e, _v, ctx) => {
+      if (ctx?.prev) {
+        utils.asistencia.listaConAsistencia.setData({ grupo_id: grupoId, fecha }, ctx.prev);
+      }
+      toast.error(e.message);
+    },
+    onSettled: () => {
       refetch();
       utils.dashboard.estadisticas.invalidate();
     },
-    onError: (e) => toast.error(e.message),
   });
 
   const sesion = data?.sesion ?? null;
@@ -47,6 +68,7 @@ export default function AsistenciaPage() {
   const pct = total === 0 ? 0 : Math.round((presentes / total) * 100);
 
   const seleccionado = !!grupoId && !!fecha;
+  const grupoNombre = (grupos ?? []).find((g) => g.id === grupoId)?.nombre;
 
   return (
     <>
@@ -93,7 +115,7 @@ export default function AsistenciaPage() {
           <div className="flex items-center justify-between border-b border-tinta/10 px-5 py-4">
             <div>
               <h2 className="font-bold text-tinta">
-                {sesion.tema || "Clase"} — {(grupos ?? []).find((g) => g.id === grupoId)?.nombre}
+                {sesion.tema || "Clase"} — {grupoNombre}
               </h2>
               <p className="text-xs text-tinta/50">Entrenador: {sesion.entrenador}</p>
             </div>

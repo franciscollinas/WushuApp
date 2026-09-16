@@ -182,7 +182,7 @@ export const usuarioRouter = router({
       const totalSesiones = susAsistencias.length;
       const totalPresente = susAsistencias.filter((a) => a.presente).length;
       const porcentajeAsistencia =
-        totalSesiones > 0 ? Math.round((totalPresente / totalSesiones) * 100) : 100;
+        totalSesiones > 0 ? Math.round((totalPresente / totalSesiones) * 100) : 0;
 
       return {
         alumno,

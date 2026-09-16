@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { EventoRow } from "@/types/supabase";
 
 const eventoInput = z.object({
@@ -13,7 +13,7 @@ const eventoInput = z.object({
 });
 
 export const eventoRouter = router({
-  list: protectedProcedure.query(async (): Promise<EventoRow[]> => {
+  list: staffProcedure.query(async (): Promise<EventoRow[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("evento")
@@ -24,7 +24,7 @@ export const eventoRouter = router({
     return (data ?? []) as EventoRow[];
   }),
 
-  proximos: protectedProcedure.query(async (): Promise<EventoRow[]> => {
+  proximos: staffProcedure.query(async (): Promise<EventoRow[]> => {
     const escuelaId = await getEscuelaId();
     const hoy = new Date().toISOString().slice(0, 10);
     const { data, error } = await supabase

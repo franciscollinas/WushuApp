@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { EvaluacionConAlumno, EvaluacionRow } from "@/types/supabase";
 
 const criterioInput = z.object({
@@ -36,7 +36,7 @@ async function aplicarNuevaCinta(
 }
 
 export const evaluacionRouter = router({
-  list: protectedProcedure.query(async (): Promise<EvaluacionConAlumno[]> => {
+  list: staffProcedure.query(async (): Promise<EvaluacionConAlumno[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("evaluacion")
@@ -47,7 +47,7 @@ export const evaluacionRouter = router({
     return (data ?? []) as EvaluacionConAlumno[];
   }),
 
-  listByAlumno: protectedProcedure
+  listByAlumno: staffProcedure
     .input(z.string())
     .query(async ({ input }): Promise<EvaluacionConAlumno[]> => {
       const escuelaId = await getEscuelaId();

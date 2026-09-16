@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { EjercicioRow } from "@/types/supabase";
 
 const ejercicioInput = z.object({
@@ -13,7 +13,7 @@ const ejercicioInput = z.object({
 });
 
 export const bibliotecaRouter = router({
-  list: protectedProcedure.query(async (): Promise<EjercicioRow[]> => {
+  list: staffProcedure.query(async (): Promise<EjercicioRow[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("ejercicio")

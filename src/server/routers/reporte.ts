@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, router } from "../trpc";
+import { staffProcedure, router } from "../trpc";
 import type { AlumnoRow, EvaluacionRow, PagoRow } from "@/types/supabase";
 
 export const reporteRouter = router({
-  deAlumno: protectedProcedure
+  deAlumno: staffProcedure
     .input(z.object({ alumno_id: z.string(), mes: z.string() }))
     .query(async ({ input }) => {
       const escuelaId = await getEscuelaId();

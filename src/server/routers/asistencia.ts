@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, router } from "../trpc";
+import { staffProcedure, router } from "../trpc";
 import type { AlumnoConFaltas, AlumnoRow, SesionConAsistencia, SesionRow } from "@/types/supabase";
 
 export const asistenciaRouter = router({
-  abrirSesion: protectedProcedure
+  abrirSesion: staffProcedure
     .input(z.object({ grupo_id: z.string(), fecha: z.string(), tema: z.string().optional() }))
     .mutation(async ({ input }): Promise<SesionRow> => {
       const escuelaId = await getEscuelaId();
@@ -52,7 +52,7 @@ export const asistenciaRouter = router({
       return sesion as SesionRow;
     }),
 
-  listaConAsistencia: protectedProcedure
+  listaConAsistencia: staffProcedure
     .input(z.object({ grupo_id: z.string(), fecha: z.string() }))
     .query(async ({ input }) => {
       const escuelaId = await getEscuelaId();
@@ -88,7 +88,7 @@ export const asistenciaRouter = router({
       };
     }),
 
-  marcarPresencia: protectedProcedure
+  marcarPresencia: staffProcedure
     .input(z.object({ asistencia_id: z.string(), presente: z.boolean() }))
     .mutation(async ({ input }) => {
       const escuelaId = await getEscuelaId();
@@ -101,7 +101,7 @@ export const asistenciaRouter = router({
       return { success: true };
     }),
 
-  alumnosConFaltas: protectedProcedure
+  alumnosConFaltas: staffProcedure
     .input(z.object({ mes: z.string() }))
     .query(async ({ input }): Promise<AlumnoConFaltas[]> => {
       const escuelaId = await getEscuelaId();

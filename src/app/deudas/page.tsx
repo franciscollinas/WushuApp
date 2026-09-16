@@ -23,6 +23,13 @@ import {
 } from "lucide-react";
 import type { DeudaConTotales } from "@/types/supabase";
 
+const formateadorCOP = new Intl.NumberFormat("es-CO", {
+  style: "currency",
+  currency: "COP",
+  maximumFractionDigits: 0,
+});
+const formatearCOP = (valor: number) => formateadorCOP.format(valor);
+
 export default function DeudasPage() {
   const utils = trpc.useUtils();
   const { data: deudas, isLoading } = trpc.deuda.list.useQuery();
@@ -129,13 +136,6 @@ export default function DeudasPage() {
       ? Math.round((totalPagadoGlobal / totalAsignadoGlobal) * 100)
       : 0;
 
-  const formatearCOP = (valor: number) =>
-    new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(valor);
-
   const abrirAbono = (id: string, nombreAlumno: string) => {
     setAsigAbonarId(id);
     setNombreAlumnoAbonar(nombreAlumno);
@@ -207,7 +207,7 @@ export default function DeudasPage() {
             <CreditCard className="mx-auto mb-3 h-10 w-10 text-tinta/30" />
             <p className="font-semibold text-tinta">No hay eventos ni deudas registrados</p>
             <p className="mt-1 text-xs text-tinta/50">
-              Crea una nueva deuda (por ejemplo: "Préstamo de Dotación 2026") y asígnale montos a los alumnos.
+              Crea una nueva deuda (por ejemplo: &quot;Préstamo de Dotación 2026&quot;) y asígnale montos a los alumnos.
             </p>
             <div className="mt-4">
               <Button onClick={() => setModalNuevaDeuda(true)}>Crear primera deuda</Button>
@@ -334,7 +334,7 @@ export default function DeudasPage() {
 
                   {!cargandoDetalle && (detalleDeuda?.alumnos ?? []).length === 0 && (
                     <div className="rounded-lg border border-dashed border-tinta/20 p-6 text-center text-sm text-tinta/50">
-                      No hay ningún alumno asignado todavía. Haz clic en "Asignar Alumno" para repartir la deuda.
+                      No hay ningún alumno asignado todavía. Haz clic en &quot;Asignar Alumno&quot; para repartir la deuda.
                     </div>
                   )}
 

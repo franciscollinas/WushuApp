@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { AlumnoRow, GrupoConAlumnos, GrupoRow } from "@/types/supabase";
 
 const grupoInput = z.object({
@@ -14,7 +14,7 @@ const grupoInput = z.object({
 });
 
 export const grupoRouter = router({
-  list: protectedProcedure.query(async (): Promise<GrupoRow[]> => {
+  list: staffProcedure.query(async (): Promise<GrupoRow[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("grupo")
@@ -25,7 +25,7 @@ export const grupoRouter = router({
     return (data ?? []) as GrupoRow[];
   }),
 
-  listWithAlumnos: protectedProcedure.query(async (): Promise<GrupoConAlumnos[]> => {
+  listWithAlumnos: staffProcedure.query(async (): Promise<GrupoConAlumnos[]> => {
     const escuelaId = await getEscuelaId();
     const [{ data: grupos, error: gErr }, { data: alumnos, error: aErr }] = await Promise.all([
       supabase.from("grupo").select("*").eq("escuela_id", escuelaId).order("nombre"),
@@ -40,7 +40,7 @@ export const grupoRouter = router({
     }));
   }),
 
-  get: protectedProcedure.input(z.string()).query(async ({ input }): Promise<GrupoRow> => {
+  get: staffProcedure.input(z.string()).query(async ({ input }): Promise<GrupoRow> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("grupo")

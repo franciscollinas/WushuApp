@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import { enviarPlantilla, enviarTexto, whatsappConfigurado } from "@/lib/whatsapp";
 
 const componentePlantilla = z.object({
@@ -10,7 +10,7 @@ const componentePlantilla = z.object({
 });
 
 export const whatsappRouter = router({
-  estado: protectedProcedure.query(() => {
+  estado: staffProcedure.query(() => {
     const url = process.env.NEXT_PUBLIC_APP_URL ?? "";
     return {
       configurado: whatsappConfigurado(),

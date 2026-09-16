@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { adminProcedure, router } from "../trpc";
+import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { PagoConAlumno, PagoRow } from "@/types/supabase";
 
 const pagoInput = z.object({
@@ -14,7 +14,7 @@ const pagoInput = z.object({
 });
 
 export const pagoRouter = router({
-  list: adminProcedure.query(async (): Promise<PagoConAlumno[]> => {
+  list: staffProcedure.query(async (): Promise<PagoConAlumno[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("pago")
@@ -25,7 +25,7 @@ export const pagoRouter = router({
     return (data ?? []) as PagoConAlumno[];
   }),
 
-  listByMes: adminProcedure.input(z.string()).query(async ({ input }): Promise<PagoConAlumno[]> => {
+  listByMes: staffProcedure.input(z.string()).query(async ({ input }): Promise<PagoConAlumno[]> => {
     const escuelaId = await getEscuelaId();
     const { data, error } = await supabase
       .from("pago")
