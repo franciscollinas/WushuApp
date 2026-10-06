@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { browserSupabase } from "@/lib/supabase-browser";
@@ -102,6 +103,12 @@ export default function LoginPage() {
           >
             {cargando ? "Entrando…" : "Iniciar sesión"}
           </button>
+          <Link
+            href="/recuperar"
+            className="mt-4 block text-center text-sm text-papel/60 hover:text-papel"
+          >
+            Olvidé mi contraseña
+          </Link>
         </form>
       </div>
     </div>

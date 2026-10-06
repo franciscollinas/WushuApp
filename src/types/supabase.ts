@@ -1,5 +1,5 @@
 export type Categoria = "infantil" | "juvenil" | "adulto";
-export type EstadoAlumno = "activo" | "inactivo";
+export type EstadoAlumno = "prospecto" | "activo" | "inactivo";
 export type EstadoPago = "pagado" | "pendiente" | "vencido";
 
 export type PlanEscuela = "basico" | "pro";
@@ -37,6 +37,10 @@ export interface AlumnoRow {
   grupo_id: string | null;
   padre_nombre: string | null;
   padre_telefono: string | null;
+  padre_email: string | null;
+  documento: string | null;
+  genero: string | null;
+  peso_kg: number | null;
   notas: string | null;
   created_at: string;
 }

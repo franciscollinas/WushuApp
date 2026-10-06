@@ -5,7 +5,7 @@ import Sidebar from "./Sidebar";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const esLogin = pathname === "/login";
+  const esLogin = ["/login", "/recuperar", "/definir-contrasena"].includes(pathname);
 
   if (esLogin) {
     return <>{children}</>;
