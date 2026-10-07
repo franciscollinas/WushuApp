@@ -139,6 +139,13 @@ export default function AlumnoFicha() {
               Acudiente: {alumno.padre_nombre ?? "—"} · {alumno.padre_telefono ?? "sin teléfono"}
             </p>
           )}
+          {(alumno.documento || alumno.genero || alumno.peso_kg != null) && (
+            <p className="mt-1 text-xs text-tinta/40">
+              {alumno.documento ? `Doc: ${alumno.documento}` : ""}
+              {alumno.genero ? ` · ${alumno.genero}` : ""}
+              {alumno.peso_kg != null ? ` · ${alumno.peso_kg} kg` : ""}
+            </p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secundario" onClick={copiarReporte}>

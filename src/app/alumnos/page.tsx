@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import { useMemo, useState } from "react";
@@ -22,6 +22,10 @@ const vacio = {
   grupo_id: "" as string,
   padre_nombre: "",
   padre_telefono: "",
+  padre_email: "",
+  documento: "",
+  genero: "",
+  peso_kg: "",
   notas: "",
 };
 
@@ -30,8 +34,30 @@ export default function AlumnosPage() {
   const { data: alumnos } = trpc.alumno.list.useQuery();
   const { data: grupos } = trpc.grupo.list.useQuery();
 
+  const [modalAbierto, setModalAbierto] = useState(false);
+
+  const aprobar = trpc.alumno.aprobarInscripcion.useMutation({
+    onSuccess: (r) => {
+      toast.success(
+        r.invitado
+          ? "Alumno aprobado. Se envió la invitación al correo del acudiente."
+          : "Alumno aprobado y vinculado a la cuenta existente."
+      );
+      utils.alumno.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const rechazar = trpc.alumno.rechazarInscripcion.useMutation({
+    onSuccess: () => {
+      toast.success("Inscripción rechazada");
+      utils.alumno.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const crear = trpc.alumno.create.useMutation({
     onSuccess: () => {
+      setModalAbierto(false);
       toast.success("Alumno creado");
       utils.alumno.list.invalidate();
       utils.grupo.listWithAlumnos.invalidate();
@@ -40,6 +66,7 @@ export default function AlumnosPage() {
   });
   const actualizar = trpc.alumno.update.useMutation({
     onSuccess: () => {
+      setModalAbierto(false);
       toast.success("Alumno actualizado");
       utils.alumno.list.invalidate();
       utils.grupo.listWithAlumnos.invalidate();
@@ -55,7 +82,6 @@ export default function AlumnosPage() {
     onError: (e) => toast.error(e.message),
   });
 
-  const [modalAbierto, setModalAbierto] = useState(false);
   const [editando, setEditando] = useState<string | null>(null);
   const [form, setForm] = useState(vacio);
   const [filtroGrupo, setFiltroGrupo] = useState("");
@@ -86,6 +112,10 @@ export default function AlumnosPage() {
       grupo_id: a.grupo_id ?? "",
       padre_nombre: a.padre_nombre ?? "",
       padre_telefono: a.padre_telefono ?? "",
+      padre_email: a.padre_email ?? "",
+      documento: a.documento ?? "",
+      genero: a.genero ?? "",
+      peso_kg: a.peso_kg != null ? String(a.peso_kg) : "",
       notas: a.notas ?? "",
     });
     setModalAbierto(true);
@@ -99,6 +129,10 @@ export default function AlumnosPage() {
       fecha_ingreso: form.fecha_ingreso || null,
       padre_nombre: form.padre_nombre || null,
       padre_telefono: form.padre_telefono || null,
+      padre_email: form.padre_email || null,
+      documento: form.documento || null,
+      genero: (form.genero as "masculino" | "femenino" | "otro") || null,
+      peso_kg: form.peso_kg ? Number(form.peso_kg) : null,
       notas: form.notas || null,
     };
     if (editando) {
@@ -106,8 +140,9 @@ export default function AlumnosPage() {
     } else {
       crear.mutate(payload);
     }
-    setModalAbierto(false);
   };
+
+  const pendientes = (alumnos ?? []).filter((a) => a.estado === "prospecto").length;
 
   const filtrados = useMemo(
     () =>
@@ -137,6 +172,19 @@ export default function AlumnosPage() {
         }
       />
 
+      {pendientes > 0 && (
+        <button
+          type="button"
+          onClick={() => setFiltroEstado("prospecto")}
+          className="mb-4 w-full rounded-xl border border-dorado/50 bg-dorado/10 px-4 py-3 text-left text-sm text-tinta transition-colors hover:bg-dorado/20"
+        >
+          <span className="font-semibold">
+            {pendientes} {pendientes === 1 ? "inscripción" : "inscripciones"} de la web por aprobar
+          </span>{" "}
+          — toca para revisarlas.
+        </button>
+      )}
+
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Select value={filtroGrupo} onChange={(e) => setFiltroGrupo(e.target.value)}>
           <option value="">Todos los grupos</option>
@@ -148,6 +196,7 @@ export default function AlumnosPage() {
         </Select>
         <Select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
           <option value="">Todos los estados</option>
+          <option value="prospecto">Por aprobar</option>
           <option value="activo">Activo</option>
           <option value="inactivo">Inactivo</option>
         </Select>
@@ -167,6 +216,7 @@ export default function AlumnosPage() {
                 <th className="px-4 py-3 font-semibold">Nombre</th>
                 <th className="px-4 py-3 font-semibold">Categoría</th>
                 <th className="px-4 py-3 font-semibold">Cinta</th>
+                <th className="px-4 py-3 font-semibold">Documento</th>
                 <th className="px-4 py-3 font-semibold">Grupo</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
                 <th className="px-4 py-3 font-semibold">Padre / acudiente</th>
@@ -176,7 +226,7 @@ export default function AlumnosPage() {
             <tbody>
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-tinta/40">
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-tinta/40">
                     No hay alumnos
                   </td>
                 </tr>
@@ -201,17 +251,52 @@ export default function AlumnosPage() {
                   </td>
                   <td className="px-4 py-3 capitalize text-tinta/70">{a.categoria}</td>
                   <td className="px-4 py-3">
-                    <Badge variant="info">{a.nivel_cinta}</Badge>
+                    {a.nivel_cinta ? <Badge variant="info">{a.nivel_cinta}</Badge> : "—"}
                   </td>
+                  <td className="px-4 py-3 text-tinta/70">{a.documento ?? "—"}</td>
                   <td className="px-4 py-3 text-tinta/70">
                     {nombreGrupoPorId.get(a.grupo_id ?? "") ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Badge variant={a.estado === "activo" ? "ok" : "estado"}>{a.estado}</Badge>
+                    <Badge variant={a.estado === "activo" ? "ok" : a.estado === "prospecto" ? "alerta" : "estado"}>
+                      {a.estado === "prospecto" ? "por aprobar" : a.estado}
+                    </Badge>
                   </td>
                   <td className="px-4 py-3 text-tinta/60">{a.padre_nombre ?? "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
+                      {a.estado === "prospecto" && (
+                        <>
+                          <button
+                            title="Aprobar e invitar al acudiente"
+                            aria-label={`Aprobar a ${a.nombre}`}
+                            disabled={aprobar.isPending}
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `¿Aprobar a ${a.nombre}? Se enviará una invitación a ${a.padre_email ?? "(sin correo)"} para que el acudiente cree su contraseña.`
+                                )
+                              )
+                                aprobar.mutate({ id: a.id });
+                            }}
+                            className="rounded-lg p-2 text-ok transition-colors hover:bg-ok-claro disabled:opacity-50"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            title="Rechazar inscripción"
+                            aria-label={`Rechazar a ${a.nombre}`}
+                            disabled={rechazar.isPending}
+                            onClick={() => {
+                              if (confirm(`¿Rechazar la inscripción de ${a.nombre}?`))
+                                rechazar.mutate(a.id);
+                            }}
+                            className="rounded-lg p-2 text-falta transition-colors hover:bg-falta-claro disabled:opacity-50"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => abrirEditar(a)}
                         className="rounded-lg p-2 text-tinta/50 transition-colors hover:bg-papel hover:text-mantis"
@@ -255,7 +340,7 @@ export default function AlumnosPage() {
             </Select>
           </Field>
           <Field label="Nivel de cinta">
-            <Input value={form.nivel_cinta} onChange={set("nivel_cinta")} required />
+            <Input value={form.nivel_cinta} onChange={set("nivel_cinta")} />
           </Field>
           <Field label="Fecha de ingreso">
             <Input type="date" value={form.fecha_ingreso} onChange={set("fecha_ingreso")} />
@@ -272,6 +357,7 @@ export default function AlumnosPage() {
           </Field>
           <Field label="Estado">
             <Select value={form.estado} onChange={set("estado")}>
+              <option value="prospecto">Por aprobar</option>
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo</option>
             </Select>
@@ -281,6 +367,34 @@ export default function AlumnosPage() {
           </Field>
           <Field label="Teléfono del padre">
             <Input value={form.padre_telefono ?? ""} onChange={set("padre_telefono")} placeholder="312…" />
+          </Field>
+          <Field label="Correo del padre">
+            <Input
+              type="email"
+              value={form.padre_email ?? ""}
+              onChange={set("padre_email")}
+              placeholder="correo@ejemplo.com"
+            />
+          </Field>
+          <Field label="Documento de identidad">
+            <Input value={form.documento} onChange={set("documento")} placeholder="RC / TI / CC" />
+          </Field>
+          <Field label="Género">
+            <Select value={form.genero} onChange={set("genero")}>
+              <option value="">Sin especificar</option>
+              <option value="masculino">Masculino</option>
+              <option value="femenino">Femenino</option>
+              <option value="otro">Otro</option>
+            </Select>
+          </Field>
+          <Field label="Peso (kg)">
+            <Input
+              type="number"
+              step="0.1"
+              value={form.peso_kg}
+              onChange={set("peso_kg")}
+              placeholder="25"
+            />
           </Field>
         </div>
         <div className="mt-4">
@@ -292,7 +406,7 @@ export default function AlumnosPage() {
           <Button variant="secundario" onClick={() => setModalAbierto(false)}>
             Cancelar
           </Button>
-          <Button onClick={guardar} disabled={!form.nombre || !form.nivel_cinta}>
+          <Button onClick={guardar} disabled={!form.nombre}>
             Guardar
           </Button>
         </div>

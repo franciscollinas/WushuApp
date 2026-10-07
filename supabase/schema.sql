@@ -68,10 +68,14 @@ create table if not exists public.alumno (
   categoria text not null default 'infantil' check (categoria in ('infantil', 'juvenil', 'adulto')),
   nivel_cinta text not null default '',
   fecha_ingreso date,
-  estado text not null default 'activo' check (estado in ('activo', 'inactivo')),
+  estado text not null default 'activo' check (estado in ('prospecto', 'activo', 'inactivo')),
   grupo_id uuid references public.grupo (id) on delete set null,
   padre_nombre text,
   padre_telefono text,
+  padre_email text,
+  documento text,
+  genero text,
+  peso_kg numeric,
   notas text,
   created_at timestamptz not null default now()
 );
@@ -388,7 +392,8 @@ create policy "alumno_padre_read" on public.alumno
 
 -- ── sesion ───────────────────────────────────────────────────────────────────
 drop policy if exists "sesion_admin" on public.sesion;
-drop policy if exists "sesion_staff_read_write" on public.sesion;
+drop policy if exists "sesion_staff_read" on public.sesion;
+drop policy if exists "sesion_staff_insert" on public.sesion;
 drop policy if exists "sesion_padre_read" on public.sesion;
 create policy "sesion_admin" on public.sesion
   for all using (
@@ -397,11 +402,12 @@ create policy "sesion_admin" on public.sesion
   with check (
     public.usuario_es_admin() and escuela_id = public.usuario_escuela_id()
   );
-create policy "sesion_staff_read_write" on public.sesion
-  for select, insert using (
+create policy "sesion_staff_read" on public.sesion
+  for select using (
     public.usuario_es_staff() and escuela_id = public.usuario_escuela_id()
-  )
-  with check (
+  );
+create policy "sesion_staff_insert" on public.sesion
+  for insert with check (
     public.usuario_es_staff() and escuela_id = public.usuario_escuela_id()
   );
 create policy "sesion_padre_read" on public.sesion
@@ -412,6 +418,9 @@ create policy "sesion_padre_read" on public.sesion
 -- ── asistencia ───────────────────────────────────────────────────────────────
 drop policy if exists "asistencia_admin" on public.asistencia;
 drop policy if exists "asistencia_staff" on public.asistencia;
+drop policy if exists "asistencia_staff_read" on public.asistencia;
+drop policy if exists "asistencia_staff_insert" on public.asistencia;
+drop policy if exists "asistencia_staff_update" on public.asistencia;
 drop policy if exists "asistencia_padre_read" on public.asistencia;
 create policy "asistencia_admin" on public.asistencia
   for all using (
@@ -420,8 +429,16 @@ create policy "asistencia_admin" on public.asistencia
   with check (
     public.usuario_es_admin() and escuela_id = public.usuario_escuela_id()
   );
-create policy "asistencia_staff" on public.asistencia
-  for select, insert, update using (
+create policy "asistencia_staff_read" on public.asistencia
+  for select using (
+    public.usuario_es_staff() and escuela_id = public.usuario_escuela_id()
+  );
+create policy "asistencia_staff_insert" on public.asistencia
+  for insert with check (
+    public.usuario_es_staff() and escuela_id = public.usuario_escuela_id()
+  );
+create policy "asistencia_staff_update" on public.asistencia
+  for update using (
     public.usuario_es_staff() and escuela_id = public.usuario_escuela_id()
   )
   with check (
