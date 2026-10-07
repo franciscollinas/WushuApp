@@ -36,7 +36,30 @@ export default function PagosPage() {
 
   const { data: pagos } = trpc.pago.list.useQuery();
   const { data: alumnos } = trpc.alumno.list.useQuery();
+  const { data: config } = trpc.pago.config.useQuery();
   const [mesFiltro, setMesFiltro] = useState(mesActual);
+  const [valorEdit, setValorEdit] = useState<string | null>(null);
+
+  const guardarValor = trpc.pago.setMensualidad.useMutation({
+    onSuccess: () => {
+      toast.success("Valor de la mensualidad guardado");
+      setValorEdit(null);
+      utils.pago.config.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const generarMes = trpc.pago.generarMes.useMutation({
+    onSuccess: (r) => {
+      toast.success(
+        r.creados > 0
+          ? `Se crearon ${r.creados} mensualidades pendientes`
+          : "Todos los alumnos activos ya tienen su mensualidad de este mes"
+      );
+      utils.pago.list.invalidate();
+      utils.pago.listByMes.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const crear = trpc.pago.create.useMutation({
     onSuccess: () => {
@@ -119,6 +142,43 @@ export default function PagosPage() {
           </Button>
         }
       />
+
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4 rounded-xl border border-tinta/10 bg-papel-claro px-5 py-4">
+        <div>
+          <p className="text-sm font-semibold text-tinta/60">Valor de la mensualidad (todos los alumnos)</p>
+          <div className="mt-1 flex items-center gap-2">
+            <Input
+              type="number"
+              min={0}
+              step="500"
+              value={valorEdit ?? String(config?.mensualidad_monto ?? "")}
+              onChange={(e) => setValorEdit(e.target.value)}
+              placeholder="80000"
+              className="w-40"
+            />
+            <Button
+              variant="secundario"
+              disabled={valorEdit === null || guardarValor.isPending}
+              onClick={() => guardarValor.mutate({ monto: Number(valorEdit) || 0 })}
+            >
+              Guardar
+            </Button>
+          </div>
+        </div>
+        <div className="text-right">
+          <Button
+            variant="secundario"
+            disabled={generarMes.isPending}
+            onClick={() => generarMes.mutate({ mes: mesFiltro })}
+          >
+            Generar mensualidades de {mesFiltro}
+          </Button>
+          <p className="mt-1 text-xs text-tinta/50">
+            Crea el cobro pendiente de cada alumno activo. El acceso de los padres se bloquea el
+            día 5 si el mes no está pagado.
+          </p>
+        </div>
+      </div>
 
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-tinta/10 bg-papel-claro px-5 py-4">
         <div>

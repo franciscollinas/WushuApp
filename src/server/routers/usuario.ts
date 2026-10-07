@@ -2,6 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { supabase } from "@/lib/supabase";
 import { getEscuela, getEscuelaId } from "@/lib/tenant";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { emailDeUsuario, generarClave, normalizarUsername, USERNAME_REGEX } from "@/lib/padres";
 import { protectedProcedure, adminProcedure, router } from "../trpc";
 import type { UsuarioRow, AlumnoRow } from "@/types/supabase";
 
@@ -22,7 +24,7 @@ export const usuarioRouter = router({
     const escuelaId = await getEscuelaId();
     const { data: usuarios, error } = await supabase
       .from("usuario")
-      .select("id, escuela_id, email, rol, created_at")
+      .select("id, escuela_id, email, rol, username, created_at")
       .eq("escuela_id", escuelaId)
       .order("email");
 
@@ -106,6 +108,9 @@ export const usuarioRouter = router({
       return { success: true };
     }),
 
+  // Retira al usuario por completo: borra su cuenta de Auth (la fila de
+  // `usuario` y sus vínculos caen en cascada). Así no queda una cuenta huérfana
+  // que pudiera volver a iniciar sesión.
   eliminar: adminProcedure.input(z.string().min(1)).mutation(async ({ ctx, input }) => {
     if (input === ctx.usuario.id) {
       throw new TRPCError({
@@ -114,88 +119,83 @@ export const usuarioRouter = router({
       });
     }
     const escuelaId = await getEscuelaId();
-    const { error } = await supabase
+    const { data: existe } = await supabase
       .from("usuario")
-      .delete()
+      .select("id")
       .eq("escuela_id", escuelaId)
-      .eq("id", input);
+      .eq("id", input)
+      .maybeSingle();
+    if (!existe) throw new TRPCError({ code: "NOT_FOUND", message: "Usuario no encontrado." });
+
+    const { error } = await supabaseAdmin().auth.admin.deleteUser(input);
     if (error) throw new Error(error.message);
     return { success: true };
   }),
 
-  // Vista consolidada de la ficha de su(s) hijo(s) para el rol padre
-  miFichaPadre: protectedProcedure.query(async ({ ctx }) => {
+  // Genera una contraseña nueva para un padre (el club la entrega en persona).
+  // Se devuelve una sola vez: no queda guardada en texto plano.
+  restablecerClave: adminProcedure.input(z.string().min(1)).mutation(async ({ input }) => {
     const escuelaId = await getEscuelaId();
-
-    // Buscar hijos vinculados a este padre
-    const { data: vinculos, error: errVinculos } = await supabase
-      .from("alumno_padre")
-      .select("alumno_id")
+    const { data: u } = await supabase
+      .from("usuario")
+      .select("id, username, rol")
       .eq("escuela_id", escuelaId)
-      .eq("usuario_id", ctx.user.id);
-
-    if (errVinculos) throw new Error(errVinculos.message);
-    const alumnoIds = (vinculos ?? []).map((v) => v.alumno_id);
-
-    if (alumnoIds.length === 0) {
-      return [];
+      .eq("id", input)
+      .maybeSingle();
+    if (!u || u.rol !== "padre") {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Padre no encontrado." });
     }
-
-    // Traer datos completos de cada alumno vinculado
-    const { data: alumnos, error: errAlumnos } = await supabase
-      .from("alumno")
-      .select("*, grupo(*)")
-      .eq("escuela_id", escuelaId)
-      .in("id", alumnoIds);
-
-    if (errAlumnos) throw new Error(errAlumnos.message);
-
-    // Traer pagos de mensualidad
-    const { data: pagos } = await supabase
-      .from("pago")
-      .select("*")
-      .eq("escuela_id", escuelaId)
-      .in("alumno_id", alumnoIds)
-      .order("fecha_vencimiento", { ascending: false });
-
-    // Traer deudas por evento con abonos
-    const { data: deudasAlumno } = await supabase
-      .from("deuda_alumno")
-      .select("*, deuda(*)")
-      .eq("escuela_id", escuelaId)
-      .in("alumno_id", alumnoIds)
-      .order("created_at", { ascending: false });
-
-    // Traer asistencias
-    const { data: asistencias } = await supabase
-      .from("asistencia")
-      .select("alumno_id, presente, sesion(fecha, tema)")
-      .eq("escuela_id", escuelaId)
-      .in("alumno_id", alumnoIds);
-
-    // Mapear cada alumno con su ficha completa
-    const resultado = (alumnos ?? []).map((alumno) => {
-      const susPagos = (pagos ?? []).filter((p) => p.alumno_id === alumno.id);
-      const susDeudas = (deudasAlumno ?? []).filter((d) => d.alumno_id === alumno.id);
-      const susAsistencias = (asistencias ?? []).filter((a) => a.alumno_id === alumno.id);
-
-      const totalSesiones = susAsistencias.length;
-      const totalPresente = susAsistencias.filter((a) => a.presente).length;
-      const porcentajeAsistencia =
-        totalSesiones > 0 ? Math.round((totalPresente / totalSesiones) * 100) : 0;
-
-      return {
-        alumno,
-        pagos: susPagos,
-        deudas: susDeudas,
-        asistencia: {
-          totalSesiones,
-          totalPresente,
-          porcentajeAsistencia,
-        },
-      };
-    });
-
-    return resultado;
+    const password = generarClave();
+    const { error } = await supabaseAdmin().auth.admin.updateUserById(input, { password });
+    if (error) throw new Error(error.message);
+    return { username: u.username as string | null, password };
   }),
+
+  // Cambia el usuario con el que el padre inicia sesión.
+  cambiarUsername: adminProcedure
+    .input(z.object({ id: z.string().min(1), username: z.string() }))
+    .mutation(async ({ input }) => {
+      const username = normalizarUsername(input.username);
+      if (!USERNAME_REGEX.test(username)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "El usuario debe tener de 4 a 30 caracteres: letras, números, punto, guion o guion bajo.",
+        });
+      }
+      const escuelaId = await getEscuelaId();
+      const { data: u } = await supabase
+        .from("usuario")
+        .select("id, rol")
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id)
+        .maybeSingle();
+      if (!u || u.rol !== "padre") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Padre no encontrado." });
+      }
+      const { data: ocupado } = await supabase
+        .from("usuario")
+        .select("id")
+        .eq("escuela_id", escuelaId)
+        .ilike("username", username)
+        .neq("id", input.id)
+        .maybeSingle();
+      if (ocupado) {
+        throw new TRPCError({ code: "CONFLICT", message: "Ese usuario ya está en uso." });
+      }
+
+      const email = emailDeUsuario(username);
+      const { error: errAuth } = await supabaseAdmin().auth.admin.updateUserById(input.id, {
+        email,
+        email_confirm: true,
+      });
+      if (errAuth) throw new Error(errAuth.message);
+
+      const { error } = await supabase
+        .from("usuario")
+        .update({ username, email })
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      return { username };
+    }),
 });

@@ -40,7 +40,7 @@ export async function obtenerUsuarioRow(
 ): Promise<UsuarioRow | null> {
   const { data, error } = await supabase
     .from("usuario")
-    .select("id, escuela_id, email, rol, created_at")
+    .select("id, escuela_id, email, rol, username, created_at")
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;

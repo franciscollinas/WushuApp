@@ -8,6 +8,7 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import { temaCinta } from "@/lib/cinta";
 import KPI from "@/components/ui/KPI";
 
 export default function AlumnoFicha() {
@@ -128,7 +129,17 @@ export default function AlumnoFicha() {
         <div>
           <h1 className="text-2xl font-bold text-tinta">{alumno.nombre}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant="info">{alumno.nivel_cinta}</Badge>
+            {alumno.nivel_cinta ? (
+              <span
+                className="inline-flex items-center rounded-full border border-tinta/20 px-2.5 py-0.5 text-xs font-semibold"
+                style={{
+                  backgroundColor: temaCinta(alumno.nivel_cinta).fondo,
+                  color: temaCinta(alumno.nivel_cinta).texto,
+                }}
+              >
+                {alumno.nivel_cinta}
+              </span>
+            ) : null}
             <Badge variant={alumno.estado === "activo" ? "ok" : "estado"}>{alumno.estado}</Badge>
             <span className="text-sm text-tinta/60">
               {alumno.categoria} · grupo: {grupoNombre ?? "—"}

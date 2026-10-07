@@ -2,7 +2,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { supabaseAdmin, urlApp } from "@/lib/supabase-admin";
+import { supabaseAdmin } from "@/lib/supabase-admin";
+import { emailDeUsuario, generarClave, hoyColombia } from "@/lib/padres";
 import { staffProcedure, adminProcedure, router } from "../trpc";
 import type { AlumnoRow } from "@/types/supabase";
 
@@ -16,7 +17,6 @@ const alumnoInput = z.object({
   grupo_id: z.string().nullable().optional(),
   padre_nombre: z.string().nullable().optional(),
   padre_telefono: z.string().nullable().optional(),
-  padre_email: z.string().trim().toLowerCase().email().nullable().optional(),
   documento: z.string().nullable().optional(),
   genero: z.enum(["masculino", "femenino", "otro"]).nullable().optional(),
   peso_kg: z.number().positive().max(400).nullable().optional(),
@@ -84,68 +84,81 @@ export const alumnoRouter = router({
     if (error) throw new Error(error.message);
     return { success: true };
   }),
-  // Aprueba una inscripción web: invita al acudiente por correo (cuenta de
-  // portal), lo vincula al alumno y lo pasa a `activo`. Usa service-role porque
-  // crear usuarios de Auth no es posible con el JWT del admin.
-  aprobarInscripcion: adminProcedure
-    .input(z.object({ id: z.string().min(1), nivel_cinta: z.string().trim().min(1).default("Sin asignar") }))
+  // Aprueba el pago de una inscripción web: crea la cuenta del padre (usuario
+  // y contraseña, sin correos), la vincula al alumno, registra el primer mes
+  // como pagado y activa al alumno. La contraseña solo se devuelve aquí, una
+  // vez: no se guarda en texto plano. Usa service-role porque crear usuarios de
+  // Auth no es posible con el JWT del admin.
+  aprobarPago: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        monto: z.number().positive("El monto debe ser mayor a 0"),
+        nivel_cinta: z.string().trim().min(1).default("Sin asignar"),
+      })
+    )
     .mutation(async ({ input }) => {
       const escuelaId = await getEscuelaId();
       const admin = supabaseAdmin();
 
       const { data: alumno } = await admin
         .from("alumno")
-        .select("id, nombre, estado, padre_nombre, padre_email")
+        .select("id, nombre, estado, padre_nombre, codigo_inscripcion")
         .eq("escuela_id", escuelaId)
         .eq("id", input.id)
         .maybeSingle();
       if (!alumno || alumno.estado !== "prospecto") {
         throw new TRPCError({ code: "NOT_FOUND", message: "No hay una inscripción pendiente con ese id." });
       }
-      const email = (alumno.padre_email as string | null)?.trim().toLowerCase();
-      if (!email) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "La inscripción no tiene correo del acudiente. Edítala y agrégalo antes de aprobar.",
-        });
-      }
 
-      // ¿El acudiente ya tiene cuenta en esta escuela?
-      const { data: existente } = await admin
-        .from("usuario")
-        .select("id")
-        .eq("escuela_id", escuelaId)
-        .eq("email", email)
-        .maybeSingle();
-
-      let padreId: string | null = (existente as { id: string } | null)?.id ?? null;
-      let invitado = false;
-
-      if (!padreId) {
-        // inviteUserByEmail SÍ envía el correo (generateLink no lo hace).
-        const { data: creado, error: errInv } = await admin.auth.admin.inviteUserByEmail(email, {
-          data: { rol: "padre", nombre: alumno.padre_nombre },
-          redirectTo: `${urlApp()}/definir-contrasena`,
-        });
-        if (errInv || !creado?.user) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: `No se pudo invitar al acudiente: ${errInv?.message ?? "error desconocido"}.`,
-          });
-        }
-        padreId = creado.user.id;
-        invitado = true;
-
-        const { error: errUsuario } = await admin
+      // Usuario por defecto: el código sin guion (ej. MB-4F7K → mb4f7k). El admin
+      // puede cambiarlo después. Si ya existe, se le agregan dígitos.
+      const base = String(alumno.codigo_inscripcion ?? "padre")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")
+        .padEnd(4, "0");
+      let username = base;
+      for (let i = 0; i < 5; i++) {
+        const { data: ocupado } = await admin
           .from("usuario")
-          .insert({ id: padreId, escuela_id: escuelaId, email, rol: "padre" });
-        if (errUsuario) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Se envió la invitación pero no se pudo crear el usuario. Reintenta la aprobación.",
-          });
-        }
+          .select("id")
+          .eq("escuela_id", escuelaId)
+          .ilike("username", username)
+          .maybeSingle();
+        if (!ocupado) break;
+        username = `${base}${Math.floor(10 + Math.random() * 90)}`;
       }
+
+      const password = generarClave();
+      const { data: creado, error: errCrear } = await admin.auth.admin.createUser({
+        email: emailDeUsuario(username),
+        password,
+        email_confirm: true,
+        user_metadata: { rol: "padre", nombre: alumno.padre_nombre },
+      });
+      if (errCrear || !creado?.user) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `No se pudo crear la cuenta del padre: ${errCrear?.message ?? "error desconocido"}.`,
+        });
+      }
+      const padreId = creado.user.id;
+
+      // Si algo falla de aquí en adelante, se deshace la cuenta para no dejar
+      // usuarios huérfanos.
+      const deshacer = async (mensaje: string): Promise<never> => {
+        await admin.auth.admin.deleteUser(padreId).catch(() => undefined);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: mensaje });
+      };
+
+      const { error: errUsuario } = await admin.from("usuario").insert({
+        id: padreId,
+        escuela_id: escuelaId,
+        email: emailDeUsuario(username),
+        rol: "padre",
+        username,
+      });
+      if (errUsuario) await deshacer("No se pudo registrar el usuario del padre. Intenta de nuevo.");
 
       const { error: errLink } = await admin
         .from("alumno_padre")
@@ -153,20 +166,33 @@ export const alumnoRouter = router({
           { alumno_id: alumno.id, usuario_id: padreId, escuela_id: escuelaId },
           { onConflict: "alumno_id,usuario_id" }
         );
-      if (errLink) throw new Error(errLink.message);
+      if (errLink) await deshacer("No se pudo vincular al padre con el alumno. Intenta de nuevo.");
+
+      // Primer mes pagado: la mensualidad del mes en curso queda al día.
+      const hoy = hoyColombia();
+      const mes = hoy.slice(0, 7);
+      const { error: errPago } = await admin.from("pago").upsert(
+        {
+          escuela_id: escuelaId,
+          alumno_id: alumno.id,
+          mes,
+          monto: input.monto,
+          estado: "pagado",
+          fecha_pago: hoy,
+          fecha_vencimiento: `${mes}-05`,
+        },
+        { onConflict: "alumno_id,mes" }
+      );
+      if (errPago) await deshacer("No se pudo registrar el pago. Intenta de nuevo.");
 
       const { error: errAlumno } = await admin
         .from("alumno")
-        .update({
-          estado: "activo",
-          nivel_cinta: input.nivel_cinta,
-          fecha_ingreso: new Date().toISOString().slice(0, 10),
-        })
+        .update({ estado: "activo", nivel_cinta: input.nivel_cinta, fecha_ingreso: hoy })
         .eq("escuela_id", escuelaId)
         .eq("id", alumno.id);
-      if (errAlumno) throw new Error(errAlumno.message);
+      if (errAlumno) await deshacer("No se pudo activar al alumno. Intenta de nuevo.");
 
-      return { success: true, invitado };
+      return { username, password, codigo: alumno.codigo_inscripcion as string | null };
     }),
 
   // Descarta una inscripción web sin borrarla (queda inactiva, con rastro).

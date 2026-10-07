@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { browserSupabase } from "@/lib/supabase-browser";
+import { emailDeUsuario } from "@/lib/padres";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,7 +23,8 @@ export default function LoginPage() {
     setCargando(true);
     try {
       const { error } = await browserSupabase().auth.signInWithPassword({
-        email,
+        // Los padres entran con un usuario (sin @); el personal con su correo.
+        email: email.includes("@") ? email.trim() : emailDeUsuario(email),
         password,
       });
       if (error) throw error;
@@ -69,17 +70,19 @@ export default function LoginPage() {
           className="rounded-xl border border-papel/10 bg-papel/5 p-6 shadow-xl"
         >
           <label className="mb-1 block text-sm text-papel/80" htmlFor="email">
-            Correo electrónico
+            Usuario o correo
           </label>
           <input
             id="email"
-            type="email"
+            type="text"
+            autoCapitalize="none"
+            autoCorrect="off"
             required
-            autoComplete="email"
+            autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="mb-4 w-full rounded-lg border border-papel/20 bg-papel px-3 py-2 text-sm text-tinta outline-none focus:border-dorado"
-            placeholder="tucorreo@escuela.com"
+            placeholder="usuario"
           />
 
           <label className="mb-1 block text-sm text-papel/80" htmlFor="password">
@@ -103,12 +106,9 @@ export default function LoginPage() {
           >
             {cargando ? "Entrando…" : "Iniciar sesión"}
           </button>
-          <Link
-            href="/recuperar"
-            className="mt-4 block text-center text-sm text-papel/60 hover:text-papel"
-          >
-            Olvidé mi contraseña
-          </Link>
+          <p className="mt-4 text-center text-xs text-papel/50">
+            ¿Olvidaste tu contraseña? Pídesela al club.
+          </p>
         </form>
       </div>
     </div>

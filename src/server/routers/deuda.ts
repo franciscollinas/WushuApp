@@ -2,7 +2,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
-import { protectedProcedure, adminProcedure, router } from "../trpc";
+import { adminProcedure, router } from "../trpc";
 import type {
   DeudaRow,
   DeudaConTotales,
@@ -254,56 +254,5 @@ export const deudaRouter = router({
       if (errorUpdate) throw new Error(errorUpdate.message);
 
       return updated;
-    }),
-
-  // Procedimiento para el padre: listar todas las deudas activas/concluidas de su hijo
-  misDeudas: protectedProcedure
-    .input(z.object({ alumno_id: z.string().optional() }).optional())
-    .query(async ({ ctx, input }) => {
-      const escuelaId = await getEscuelaId();
-      let targetAlumnoIds: string[] = [];
-
-      if (ctx.usuario.rol === "padre") {
-        // Buscar los alumnos vinculados a este usuario
-        const { data: vinculos, error: vinculosErr } = await supabase
-          .from("alumno_padre")
-          .select("alumno_id")
-          .eq("escuela_id", escuelaId)
-          .eq("usuario_id", ctx.user.id);
-
-        if (vinculosErr) throw new Error(vinculosErr.message);
-        targetAlumnoIds = (vinculos ?? []).map((v) => v.alumno_id);
-      } else if (input?.alumno_id) {
-        targetAlumnoIds = [input.alumno_id];
-      }
-
-      if (targetAlumnoIds.length === 0) {
-        return [];
-      }
-
-      const { data: deudasAlumno, error: err } = await supabase
-        .from("deuda_alumno")
-        .select("*, deuda(*), alumno(*)")
-        .eq("escuela_id", escuelaId)
-        .in("alumno_id", targetAlumnoIds)
-        .order("created_at", { ascending: false });
-
-      if (err) throw new Error(err.message);
-      if (!deudasAlumno || deudasAlumno.length === 0) return [];
-
-      const asigIds = deudasAlumno.map((d) => d.id);
-      const { data: pagosData } = await supabase
-        .from("deuda_alumno_pago")
-        .select("*")
-        .eq("escuela_id", escuelaId)
-        .in("deuda_alumno_id", asigIds)
-        .order("fecha", { ascending: false });
-
-      const pagos = pagosData ?? [];
-
-      return deudasAlumno.map((da) => ({
-        ...da,
-        pagos: pagos.filter((p) => p.deuda_alumno_id === da.id),
-      }));
     }),
 });
