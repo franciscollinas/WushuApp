@@ -45,11 +45,16 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-tinta px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dorado bg-mantis text-2xl font-bold text-dorado">
-            武
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-mantis-box.webp"
+            alt="Club Mantis Box Sabanalarga"
+            width={96}
+            height={96}
+            className="h-24 w-24 rounded-full"
+          />
           <div className="text-center">
-            <h1 className="text-xl font-bold text-papel">Mantis Box Manager</h1>
+            <h1 className="text-2xl font-semibold text-white">Mantis Box Manager</h1>
             <p className="text-sm text-papel/60">Sabanalarga</p>
           </div>
         </div>
@@ -67,9 +72,9 @@ export default function LoginPage() {
 
         <form
           onSubmit={iniciarSesion}
-          className="rounded-xl border border-papel/10 bg-papel/5 p-6 shadow-xl"
+          className="rounded-2xl bg-white p-7 shadow-[0_6px_20px_rgba(0,0,0,0.25)]"
         >
-          <label className="mb-1 block text-sm text-papel/80" htmlFor="email">
+          <label className="mb-1.5 block text-[13px] font-semibold text-tinta/70" htmlFor="email">
             Usuario o correo
           </label>
           <input
@@ -81,11 +86,11 @@ export default function LoginPage() {
             autoComplete="username"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mb-4 w-full rounded-lg border border-papel/20 bg-papel px-3 py-2 text-sm text-tinta outline-none focus:border-dorado"
+            className="mb-4 min-h-11 w-full rounded-xl border border-tinta/20 bg-white px-4 py-2.5 text-sm text-tinta outline-none focus:border-mantis focus:ring-2 focus:ring-mantis/25"
             placeholder="usuario"
           />
 
-          <label className="mb-1 block text-sm text-papel/80" htmlFor="password">
+          <label className="mb-1.5 block text-[13px] font-semibold text-tinta/70" htmlFor="password">
             Contraseña
           </label>
           <input
@@ -95,18 +100,18 @@ export default function LoginPage() {
             autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mb-6 w-full rounded-lg border border-papel/20 bg-papel px-3 py-2 text-sm text-tinta outline-none focus:border-dorado"
+            className="mb-6 min-h-11 w-full rounded-xl border border-tinta/20 bg-white px-4 py-2.5 text-sm text-tinta outline-none focus:border-mantis focus:ring-2 focus:ring-mantis/25"
             placeholder="••••••••"
           />
 
           <button
             type="submit"
             disabled={cargando}
-            className="w-full rounded-lg bg-mantis px-3 py-2.5 text-sm font-semibold text-papel transition-colors hover:bg-mantis-dark disabled:opacity-60"
+            className="min-h-12 w-full rounded-full bg-mantis px-4 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-150 hover:bg-mantis-dark active:scale-95 disabled:opacity-60"
           >
             {cargando ? "Entrando…" : "Iniciar sesión"}
           </button>
-          <p className="mt-4 text-center text-xs text-papel/50">
+          <p className="mt-4 text-center text-xs text-tinta/60">
             ¿Olvidaste tu contraseña? Pídesela al club.
           </p>
         </form>

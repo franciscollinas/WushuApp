@@ -78,9 +78,14 @@ export default function Sidebar() {
   return (
     <aside className="fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-tinta/10 bg-tinta text-papel lg:w-56">
       <div className="flex items-center gap-3 px-4 py-5 lg:px-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-dorado bg-mantis text-xl font-bold text-dorado">
-          武
-        </div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-mantis-box.webp"
+          alt="Club Mantis Box Sabanalarga"
+          width={40}
+          height={40}
+          className="h-10 w-10 shrink-0 rounded-full"
+        />
         <div className="hidden lg:block">
           <p className="text-sm font-bold leading-tight">Mantis Box</p>
           <p className="text-xs text-papel/60">Sabanalarga</p>
@@ -98,10 +103,10 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               aria-current={activo ? "page" : undefined}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
+              className={`flex min-h-11 items-center gap-3 rounded-full px-3 py-2.5 text-sm transition-colors ${
                 activo
-                  ? "bg-mantis text-papel"
-                  : "text-papel/80 hover:bg-papel/10 hover:text-papel"
+                  ? "bg-white/15 font-semibold text-white"
+                  : "text-papel/80 hover:bg-white/10 hover:text-white"
               }`}
             >
               <item.icon className="h-5 w-5 shrink-0" />
