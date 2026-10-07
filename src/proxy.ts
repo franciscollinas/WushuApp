@@ -60,7 +60,11 @@ export async function proxy(request: NextRequest) {
 
   if (usuario.rol === "padre") {
     // Los padres solo tienen acceso a su portal
-    if (pathname !== "/portal" && !pathname.startsWith("/portal/")) {
+    const permitida =
+      pathname === "/portal" ||
+      pathname.startsWith("/portal/") ||
+      pathname.startsWith("/comprobante/");
+    if (!permitida) {
       return NextResponse.redirect(new URL("/portal", request.url));
     }
   } else if (usuario.rol === "entrenador") {

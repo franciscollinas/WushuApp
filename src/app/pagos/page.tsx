@@ -104,6 +104,9 @@ export default function PagosPage() {
 
   const [modalAbierto, setModalAbierto] = useState(false);
   const [form, setForm] = useState(vacio);
+  const [confirmando, setConfirmando] = useState<{ id: string; alumno: string } | null>(null);
+  const [metodoConfirmacion, setMetodoConfirmacion] = useState("Efectivo");
+  const [obsConfirmacion, setObsConfirmacion] = useState("");
 
   const set = (k: keyof typeof vacio) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -246,11 +249,25 @@ export default function PagosPage() {
                       <div className="flex justify-end gap-1">
                         {p.estado !== "pagado" && (
                           <button
-                            onClick={() => marcarPagado.mutate({ id: p.id, fecha_pago: new Date().toISOString().slice(0, 10) })}
+                            onClick={() => {
+                              setConfirmando({ id: p.id, alumno: alumno?.nombre ?? "" });
+                              setMetodoConfirmacion("Efectivo");
+                              setObsConfirmacion("");
+                            }}
                             className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-ok transition-colors hover:bg-ok-claro"
                           >
                             Marcar pagado
                           </button>
+                        )}
+                        {p.estado === "pagado" && (
+                          <a
+                            href={`/comprobante/${p.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-mantis transition-colors hover:bg-papel"
+                          >
+                            Comprobante
+                          </a>
                         )}
                         {telefono && p.estado !== "pagado" && (
                           <a
@@ -333,6 +350,56 @@ export default function PagosPage() {
             Registrar
           </Button>
         </div>
+      </Modal>
+
+      <Modal
+        abierto={!!confirmando}
+        titulo="Confirmar pago"
+        onCerrar={() => setConfirmando(null)}
+      >
+        {confirmando && (
+          <div className="space-y-4">
+            <p className="text-sm text-tinta/70">
+              Confirma que el dinero de <strong>{confirmando.alumno}</strong> ya llegó. Se generará
+              su comprobante de pago.
+            </p>
+            <Field label="Método de pago">
+              <Select value={metodoConfirmacion} onChange={(e) => setMetodoConfirmacion(e.target.value)}>
+                <option>Efectivo</option>
+                <option>Transferencia</option>
+                <option>Nequi</option>
+                <option>Daviplata</option>
+                <option>Otro</option>
+              </Select>
+            </Field>
+            <Field label="Observaciones (opcional)">
+              <Input
+                value={obsConfirmacion}
+                onChange={(e) => setObsConfirmacion(e.target.value)}
+                placeholder="Ej. Pagó la mensualidad completa"
+              />
+            </Field>
+            <div className="flex justify-end gap-3">
+              <Button variant="secundario" onClick={() => setConfirmando(null)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={marcarPagado.isPending}
+                onClick={() => {
+                  marcarPagado.mutate({
+                    id: confirmando.id,
+                    fecha_pago: new Date().toISOString().slice(0, 10),
+                    metodo_pago: metodoConfirmacion,
+                    observaciones: obsConfirmacion.trim() || undefined,
+                  });
+                  setConfirmando(null);
+                }}
+              >
+                Confirmar pago
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );

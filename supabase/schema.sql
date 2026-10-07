@@ -120,10 +120,33 @@ create table if not exists public.pago (
   estado text not null default 'pendiente' check (estado in ('pagado', 'pendiente', 'vencido')),
   fecha_pago date,
   fecha_vencimiento date not null default (date_trunc('month', now()) + interval '15 days')::date,
+  metodo_pago text,
+  observaciones text,
+  comprobante_numero bigint,
   created_at timestamptz not null default now(),
   unique (alumno_id, mes)
 );
 create index if not exists idx_pago_escuela on public.pago (escuela_id);
+create unique index if not exists uq_pago_comprobante
+  on public.pago (comprobante_numero) where comprobante_numero is not null;
+
+-- Número consecutivo del comprobante: se asigna cuando el pago pasa a 'pagado'.
+create sequence if not exists public.pago_comprobante_seq;
+create or replace function public.pago_asignar_comprobante()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.estado = 'pagado' and new.comprobante_numero is null then
+    new.comprobante_numero := nextval('public.pago_comprobante_seq');
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_pago_comprobante on public.pago;
+create trigger trg_pago_comprobante
+  before insert or update on public.pago
+  for each row execute function public.pago_asignar_comprobante();
 
 -- ── evaluaciones de cinturones ───────────────────────────────────────────────
 create table if not exists public.evaluacion (

@@ -73,6 +73,9 @@ export interface PagoRow {
   estado: EstadoPago;
   fecha_pago: string | null;
   fecha_vencimiento: string;
+  metodo_pago: string | null;
+  observaciones: string | null;
+  comprobante_numero: number | null;
   created_at: string;
 }
 
