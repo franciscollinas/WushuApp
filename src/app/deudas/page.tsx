@@ -384,6 +384,11 @@ export default function DeudasPage() {
                                 </td>
                                 <td className="px-4 py-3 font-bold text-rojo">
                                   {formatearCOP(saldo)}
+                                  {asig.monto_pagado > asig.monto_total && (
+                                    <div className="text-xs font-semibold text-mantis-dark">
+                                      A favor: {formatearCOP(asig.monto_pagado - asig.monto_total)}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className="px-4 py-3 min-w-[140px]">
                                   <div className="flex items-center gap-2">

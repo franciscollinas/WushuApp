@@ -35,11 +35,21 @@ export const deudaRouter = router({
     const deudasConTotales: DeudaConTotales[] = deudas.map((d: DeudaRow) => {
       const items = (asignaciones ?? []).filter((a) => a.deuda_id === d.id);
       const total_asignado = items.reduce((acc, curr) => acc + Number(curr.monto_total || 0), 0);
-      const total_pagado = items.reduce((acc, curr) => acc + Number(curr.monto_pagado || 0), 0);
+      // Lo pagado de más en un préstamo NO cuenta como recaudado ni compensa la
+      // deuda de otro alumno: se informa aparte como saldo a favor.
+      const total_pagado = items.reduce(
+        (acc, curr) => acc + Math.min(Number(curr.monto_pagado || 0), Number(curr.monto_total || 0)),
+        0
+      );
+      const total_favor = items.reduce(
+        (acc, curr) => acc + Math.max(0, Number(curr.monto_pagado || 0) - Number(curr.monto_total || 0)),
+        0
+      );
       return {
         ...d,
         total_asignado,
         total_pagado,
+        total_favor,
         alumnos_count: items.length,
       };
     });

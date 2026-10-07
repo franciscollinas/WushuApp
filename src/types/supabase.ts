@@ -202,6 +202,7 @@ export interface DeudaAlumnoPagoRow {
 export interface DeudaConTotales extends DeudaRow {
   total_asignado: number;
   total_pagado: number;
+  total_favor: number;
   alumnos_count: number;
 }
 
