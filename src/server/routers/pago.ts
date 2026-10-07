@@ -3,7 +3,9 @@ import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
 import { TRPCError } from "@trpc/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { staffProcedure, adminProcedure, router } from "../trpc";
+import { hoyColombia } from "@/lib/padres";
+import { estaAlDia } from "@/lib/pagos";
+import { protectedProcedure, staffProcedure, adminProcedure, router } from "../trpc";
 import type { PagoConAlumno, PagoRow } from "@/types/supabase";
 
 const pagoInput = z.object({
@@ -13,6 +15,8 @@ const pagoInput = z.object({
   estado: z.enum(["pagado", "pendiente", "vencido"]),
   fecha_pago: z.string().nullable().optional(),
   fecha_vencimiento: z.string(),
+  metodo_pago: z.string().trim().max(40).nullable().optional(),
+  observaciones: z.string().trim().max(300).nullable().optional(),
 });
 
 export const pagoRouter = router({
@@ -51,12 +55,24 @@ export const pagoRouter = router({
   }),
 
   marcarPagado: adminProcedure
-    .input(z.object({ id: z.string(), fecha_pago: z.string() }))
+    .input(
+      z.object({
+        id: z.string(),
+        fecha_pago: z.string(),
+        metodo_pago: z.string().trim().max(40).optional(),
+        observaciones: z.string().trim().max(300).optional(),
+      })
+    )
     .mutation(async ({ input }) => {
       const escuelaId = await getEscuelaId();
       const { error } = await supabase
         .from("pago")
-        .update({ estado: "pagado", fecha_pago: input.fecha_pago })
+        .update({
+          estado: "pagado",
+          fecha_pago: input.fecha_pago,
+          ...(input.metodo_pago ? { metodo_pago: input.metodo_pago } : {}),
+          ...(input.observaciones ? { observaciones: input.observaciones } : {}),
+        })
         .eq("escuela_id", escuelaId)
         .eq("id", input.id);
       if (error) throw new Error(error.message);
@@ -151,4 +167,70 @@ export const pagoRouter = router({
       }
       return { creados: filas.length };
     }),
+
+  // Datos del comprobante de un pago ya confirmado. El admin puede ver cualquiera
+  // de su escuela; un padre solo los de sus hijos y mientras esté al día.
+  comprobante: protectedProcedure.input(z.string().min(1)).query(async ({ ctx, input }) => {
+    const rol = ctx.usuario.rol;
+    if (rol !== "admin" && rol !== "padre") {
+      throw new TRPCError({ code: "FORBIDDEN", message: "No tienes acceso a este comprobante." });
+    }
+    const admin = supabaseAdmin();
+    const escuelaId = ctx.usuario.escuela_id;
+
+    const { data: p } = await admin
+      .from("pago")
+      .select("*, alumno(id, nombre, nivel_cinta, fecha_ingreso, created_at, grupo(nombre))")
+      .eq("escuela_id", escuelaId)
+      .eq("id", input)
+      .maybeSingle();
+    if (!p || p.estado !== "pagado") {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Comprobante no encontrado." });
+    }
+    const alumno = (Array.isArray(p.alumno) ? p.alumno[0] : p.alumno) as {
+      id: string;
+      nombre: string;
+      nivel_cinta: string | null;
+      fecha_ingreso: string | null;
+      created_at: string;
+      grupo: { nombre: string } | { nombre: string }[] | null;
+    } | null;
+    if (!alumno) throw new TRPCError({ code: "NOT_FOUND", message: "Comprobante no encontrado." });
+
+    if (rol === "padre") {
+      const { data: vinculo } = await admin
+        .from("alumno_padre")
+        .select("alumno_id")
+        .eq("escuela_id", escuelaId)
+        .eq("usuario_id", ctx.user.id)
+        .eq("alumno_id", alumno.id)
+        .maybeSingle();
+      if (!vinculo) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Comprobante no encontrado." });
+      }
+      const { data: pagados } = await admin
+        .from("pago")
+        .select("mes")
+        .eq("escuela_id", escuelaId)
+        .eq("alumno_id", alumno.id)
+        .eq("estado", "pagado");
+      const ingreso = String(alumno.fecha_ingreso ?? alumno.created_at).slice(0, 10);
+      if (!estaAlDia(hoyColombia(), ingreso, (pagados ?? []).map((x) => x.mes as string))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Acceso suspendido por pago pendiente." });
+      }
+    }
+
+    const grupo = Array.isArray(alumno.grupo) ? alumno.grupo[0] : alumno.grupo;
+    const partes = [grupo?.nombre, alumno.nivel_cinta ? `Cinta ${alumno.nivel_cinta}` : null].filter(Boolean);
+    return {
+      numero: p.comprobante_numero ? `MB-${String(p.comprobante_numero).padStart(6, "0")}` : "—",
+      estudiante: alumno.nombre,
+      grupoNivel: partes.join(" · ") || "—",
+      mes: p.mes as string,
+      fechaPago: (p.fecha_pago ?? "") as string,
+      metodo: (p.metodo_pago ?? "") as string,
+      monto: Number(p.monto),
+      observaciones: (p.observaciones ?? "") as string,
+    };
+  }),
 });

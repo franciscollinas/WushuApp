@@ -336,6 +336,16 @@ export default function PortalPadrePage() {
                     <span className="font-semibold text-tinta">
                       {formatearCOP(pago.monto)}
                     </span>
+                    {pago.estado === "pagado" && (
+                      <a
+                        href={`/comprobante/${pago.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-mantis underline hover:text-mantis-dark"
+                      >
+                        Comprobante
+                      </a>
+                    )}
                     <Badge
                       variant={
                         pago.estado === "pagado"

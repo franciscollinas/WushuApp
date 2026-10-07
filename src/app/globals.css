@@ -1,35 +1,53 @@
 @import "tailwindcss";
 
+/* Identidad visual: verdes de marca, lienzo cálido, botones redondeados y
+   sombras suaves. Los nombres de los tokens se conservan (mantis, tinta, papel…)
+   para que toda la app cambie de forma coherente sin tocar su lógica. */
 :root {
-  --rojo-mantis: #a62639;
-  --dorado: #c99a2e;
-  --amarillo-bandera: #f2c230;
-  --tinta: #1f1b16;
-  --fondo: #fbf8f3;
+  --verde-marca: #006241; /* hover / énfasis */
+  --verde-accion: #00754a; /* botones y enlaces */
+  --verde-casa: #1e3932; /* superficies profundas y texto principal */
+  --verde-claro: #d4e9e2; /* fondos suaves */
+  --dorado: #cba258; /* acento contextual (cintas, logros) */
+  --tinta: var(--verde-casa);
+  --fondo: #f2f0eb; /* lienzo cálido */
+  --ceramica: #edebe9;
+  --sombra-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --sombra-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --sombra-lg: 0 6px 20px rgba(0, 0, 0, 0.12);
 }
 
 @theme inline {
-  --color-mantis: var(--rojo-mantis);
-  --color-mantis-dark: #80202d;
-  --color-mantis-light: #e8c9ce;
+  --color-mantis: var(--verde-accion);
+  --color-mantis-dark: var(--verde-marca);
+  --color-mantis-light: var(--verde-claro);
   --color-dorado: var(--dorado);
-  --color-ambar: var(--amarillo-bandera);
+  --color-ambar: #c47a00;
   --color-tinta: var(--tinta);
   --color-papel: var(--fondo);
   --color-papel-claro: #ffffff;
-  --color-ok: #2f9e44;
-  --color-ok-claro: #e6f4ea;
-  --color-falta: #c92a2a;
-  --color-falta-claro: #fbecec;
-  --color-conteo-claro: #fff4e0;
+  --color-ceramica: var(--ceramica);
+  --color-ok: #00754a;
+  --color-ok-claro: #d4e9e2;
+  --color-falta: #d11a1a;
+  --color-falta-claro: #fbe9e9;
+  --color-rojo: #d11a1a;
+  --color-conteo-claro: #fff3dc;
 
-  --font-sans: var(--font-lx);
+  --font-sans: var(--font-ui);
 }
 
 body {
   background: var(--fondo);
   color: var(--tinta);
-  font-family: var(--font-lx), system-ui, sans-serif;
+  font-family: var(--font-ui), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.01em;
 }
 
 input[type="date"],
@@ -38,4 +56,20 @@ input[type="number"],
 input[type="text"],
 select {
   font-family: inherit;
+}
+
+/* Foco siempre visible para navegación con teclado */
+:where(a, button, summary, [role="button"]):focus-visible {
+  outline: 3px solid var(--verde-accion);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

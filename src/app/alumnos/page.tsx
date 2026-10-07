@@ -39,6 +39,7 @@ export default function AlumnosPage() {
   const [aprobando, setAprobando] = useState<AlumnoRow | null>(null);
   const [montoPago, setMontoPago] = useState("");
   const [cintaAprobacion, setCintaAprobacion] = useState("");
+  const [metodoAprobacion, setMetodoAprobacion] = useState("Efectivo");
   const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -454,6 +455,15 @@ export default function AlumnosPage() {
                 placeholder="Ej. 80000"
               />
             </Field>
+            <Field label="Método de pago">
+              <Select value={metodoAprobacion} onChange={(e) => setMetodoAprobacion(e.target.value)}>
+                <option>Efectivo</option>
+                <option>Transferencia</option>
+                <option>Nequi</option>
+                <option>Daviplata</option>
+                <option>Otro</option>
+              </Select>
+            </Field>
             <Field label="Nivel de cinta (opcional)">
               <Input
                 value={cintaAprobacion}
@@ -472,6 +482,7 @@ export default function AlumnosPage() {
                     id: aprobando.id,
                     monto: Number(montoPago),
                     nivel_cinta: cintaAprobacion.trim() || "Sin asignar",
+                    metodo_pago: metodoAprobacion,
                   })
                 }
               >

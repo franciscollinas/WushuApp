@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { Lexend } from "next/font/google";
+import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import "./globals.css";
 import TRPCProvider from "@/components/providers/TRPCProvider";
 import AppShell from "@/components/AppShell";
 
-const lexend = Lexend({
-  variable: "--font-lx",
+const inter = Inter({
+  variable: "--font-ui",
   subsets: ["latin"],
 });
 
@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
-      className={`${lexend.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full">
         <TRPCProvider>
@@ -31,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             style: {
               background: "var(--tinta)",
               color: "var(--fondo)",
-              fontFamily: "var(--font-lx)",
+              fontFamily: "var(--font-ui)",
             },
           }}
         />

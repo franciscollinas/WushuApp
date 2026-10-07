@@ -6,8 +6,9 @@ import Sidebar from "./Sidebar";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const esLogin = pathname === "/login";
+  const esComprobante = pathname.startsWith("/comprobante/");
 
-  if (esLogin) {
+  if (esLogin || esComprobante) {
     return <>{children}</>;
   }
 

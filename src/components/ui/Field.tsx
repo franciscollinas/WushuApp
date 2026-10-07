@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes 
 export function Input({ className = "", ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`w-full rounded-lg border border-tinta/15 bg-papel-claro px-3 py-2 text-sm text-tinta outline-none transition-colors placeholder:text-tinta/40 focus:border-mantis focus:ring-2 focus:ring-mantis/20 ${className}`}
+      className={`w-full min-h-11 rounded-xl border border-tinta/20 bg-papel-claro px-4 py-2.5 text-sm text-tinta outline-none transition-colors placeholder:text-tinta/40 focus:border-mantis focus:ring-2 focus:ring-mantis/25 ${className}`}
       {...rest}
     />
   );
@@ -12,7 +12,7 @@ export function Input({ className = "", ...rest }: InputHTMLAttributes<HTMLInput
 export function Select({ className = "", ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
-      className={`w-full rounded-lg border border-tinta/15 bg-papel-claro px-3 py-2 text-sm text-tinta outline-none transition-colors focus:border-mantis focus:ring-2 focus:ring-mantis/20 ${className}`}
+      className={`w-full min-h-11 rounded-xl border border-tinta/20 bg-papel-claro px-4 py-2.5 text-sm text-tinta outline-none transition-colors focus:border-mantis focus:ring-2 focus:ring-mantis/25 ${className}`}
       {...rest}
     />
   );
@@ -24,7 +24,7 @@ export function Textarea({
 }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`w-full rounded-lg border border-tinta/15 bg-papel-claro px-3 py-2 text-sm text-tinta outline-none transition-colors placeholder:text-tinta/40 focus:border-mantis focus:ring-2 focus:ring-mantis/20 ${className}`}
+      className={`w-full min-h-11 rounded-xl border border-tinta/20 bg-papel-claro px-4 py-2.5 text-sm text-tinta outline-none transition-colors placeholder:text-tinta/40 focus:border-mantis focus:ring-2 focus:ring-mantis/25 ${className}`}
       {...rest}
     />
   );
@@ -39,7 +39,7 @@ export function Field({
 }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-xs font-semibold text-tinta/60">{label}</span>
+      <span className="text-[13px] font-semibold text-tinta/70">{label}</span>
       {children}
     </label>
   );

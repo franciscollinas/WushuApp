@@ -95,6 +95,7 @@ export const alumnoRouter = router({
         id: z.string().min(1),
         monto: z.number().positive("El monto debe ser mayor a 0"),
         nivel_cinta: z.string().trim().min(1).default("Sin asignar"),
+        metodo_pago: z.string().trim().max(40).default("Efectivo"),
       })
     )
     .mutation(async ({ input }) => {
@@ -180,6 +181,8 @@ export const alumnoRouter = router({
           estado: "pagado",
           fecha_pago: hoy,
           fecha_vencimiento: `${mes}-05`,
+          metodo_pago: input.metodo_pago,
+          observaciones: "Inscripción y primer mes",
         },
         { onConflict: "alumno_id,mes" }
       );
