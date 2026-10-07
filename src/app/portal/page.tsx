@@ -82,10 +82,16 @@ export default function PortalPadrePage() {
   } = fichaActual;
   const tema = temaCinta(alumno.nivel_cinta);
 
-  // Total de deudas pendientes por eventos
-  const totalDeudasMonto = deudas.reduce((acc, d) => acc + Number(d.monto_total || 0), 0);
-  const totalDeudasPagado = deudas.reduce((acc, d) => acc + Number(d.monto_pagado || 0), 0);
-  const saldoDeudasTotal = Math.max(0, totalDeudasMonto - totalDeudasPagado);
+  // Cada préstamo se calcula por separado: lo pagado de más en uno NO compensa
+  // lo que se debe en otro; se muestra como saldo a favor.
+  const saldoDeudasTotal = deudas.reduce(
+    (acc, d) => acc + Math.max(0, Number(d.monto_total || 0) - Number(d.monto_pagado || 0)),
+    0
+  );
+  const favorDeudasTotal = deudas.reduce(
+    (acc, d) => acc + Math.max(0, Number(d.monto_pagado || 0) - Number(d.monto_total || 0)),
+    0
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -199,6 +205,7 @@ export default function PortalPadrePage() {
           ) : (
             <div className="rounded-xl bg-mantis/15 px-3.5 py-1.5 text-xs font-bold text-mantis-dark border border-mantis/30 self-start sm:self-auto">
               Al día en préstamos y eventos ✓
+              {favorDeudasTotal > 0 ? ` · Saldo a favor: ${formatearCOP(favorDeudasTotal)}` : ""}
             </div>
           )}
         </div>
@@ -241,7 +248,7 @@ export default function PortalPadrePage() {
                           {d.estado === "pagado" ? "Pagado ✓" : d.estado}
                         </Badge>
                       </div>
-                      {d.deuda?.descripcion && (
+                      {d.deuda?.descripcion && !/^[\d.,\s]+$/.test(d.deuda.descripcion) && (
                         <p className="mt-1 text-xs text-tinta/70">{d.deuda.descripcion}</p>
                       )}
                     </div>
@@ -255,7 +262,7 @@ export default function PortalPadrePage() {
                   {/* BARRA DE PROGRESO DE PAGO */}
                   <div className="mt-3">
                     <div className="flex justify-between text-xs font-semibold text-tinta/70 mb-1">
-                      <span>Pagado: {formatearCOP(montoPagado)}</span>
+                      <span>Pagado: {formatearCOP(Math.min(montoPagado, montoTotal))}</span>
                       <span>Total: {formatearCOP(montoTotal)}</span>
                     </div>
                     <div className="h-4 w-full overflow-hidden rounded-full bg-tinta/10 p-0.5 border border-tinta/10">
@@ -273,6 +280,13 @@ export default function PortalPadrePage() {
                       </div>
                     </div>
                   </div>
+
+                  {montoPagado > montoTotal && (
+                    <p className="mt-2 rounded-lg bg-mantis/10 px-3 py-1.5 text-xs font-semibold text-mantis-dark">
+                      Pagaste {formatearCOP(montoPagado - montoTotal)} de más: queda como saldo a
+                      favor.
+                    </p>
+                  )}
 
                   {/* Detalle de pagos realizados si hay */}
                   {d.pagos && d.pagos.length > 0 && (
