@@ -128,6 +128,8 @@ export interface EjercicioRow {
   dificultad: string;
   descripcion: string | null;
   duracion: string | null;
+  nivel_cinta: string | null;
+  media_url: string | null;
   created_at: string;
 }
 

@@ -10,6 +10,8 @@ const ejercicioInput = z.object({
   dificultad: z.string().min(1),
   descripcion: z.string().nullable().optional(),
   duracion: z.string().nullable().optional(),
+  nivel_cinta: z.string().trim().nullable().optional(),
+  media_url: z.string().trim().url().nullable().optional(),
 });
 
 export const bibliotecaRouter = router({

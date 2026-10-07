@@ -9,6 +9,7 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
+import { browserSupabase } from "@/lib/supabase-browser";
 import type { EjercicioRow } from "@/types/supabase";
 
 const CATEGORIAS = ["calentamiento", "tecnica", "fisico", "actitud"];
@@ -27,6 +28,8 @@ const vacio = {
   dificultad: "basica",
   descripcion: "",
   duracion: "",
+  nivel_cinta: "",
+  media_url: "",
 };
 
 export default function BibliotecaPage() {
@@ -35,6 +38,7 @@ export default function BibliotecaPage() {
 
   const crear = trpc.biblioteca.create.useMutation({
     onSuccess: () => {
+      setModalAbierto(false);
       toast.success("Ejercicio creado");
       utils.biblioteca.list.invalidate();
     },
@@ -42,6 +46,7 @@ export default function BibliotecaPage() {
   });
   const actualizar = trpc.biblioteca.update.useMutation({
     onSuccess: () => {
+      setModalAbierto(false);
       toast.success("Ejercicio actualizado");
       utils.biblioteca.list.invalidate();
     },
@@ -78,6 +83,8 @@ export default function BibliotecaPage() {
       dificultad: ej.dificultad,
       descripcion: ej.descripcion ?? "",
       duracion: ej.duracion ?? "",
+      nivel_cinta: ej.nivel_cinta ?? "",
+      media_url: ej.media_url ?? "",
     });
     setModalAbierto(true);
   };
@@ -87,10 +94,39 @@ export default function BibliotecaPage() {
       ...form,
       descripcion: form.descripcion || null,
       duracion: form.duracion || null,
+      nivel_cinta: form.nivel_cinta.trim() || null,
+      media_url: form.media_url.trim() || null,
     };
     if (editando) actualizar.mutate({ ...payload, id: editando });
     else crear.mutate(payload);
-    setModalAbierto(false);
+  };
+
+  const [subiendo, setSubiendo] = useState(false);
+  const subirFoto = async (archivo: File | undefined) => {
+    if (!archivo) return;
+    if (!archivo.type.startsWith("image/")) {
+      toast.error("Elige una imagen (JPG, PNG o WebP).");
+      return;
+    }
+    if (archivo.size > 5 * 1024 * 1024) {
+      toast.error("La imagen pesa más de 5 MB. Usa una más liviana.");
+      return;
+    }
+    setSubiendo(true);
+    const ext = (archivo.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const ruta = `${crypto.randomUUID()}.${ext}`;
+    const supa = browserSupabase();
+    const { error } = await supa.storage.from("ejercicios").upload(ruta, archivo, {
+      contentType: archivo.type,
+    });
+    setSubiendo(false);
+    if (error) {
+      toast.error(`No se pudo subir la foto: ${error.message}`);
+      return;
+    }
+    const { data } = supa.storage.from("ejercicios").getPublicUrl(ruta);
+    setForm((f) => ({ ...f, media_url: data.publicUrl }));
+    toast.success("Foto subida");
   };
 
   const filtrados = (ejercicios ?? []).filter(
@@ -135,12 +171,22 @@ export default function BibliotecaPage() {
         )}
         {filtrados.map((ej) => (
           <div key={ej.id} className="flex flex-col rounded-xl border border-tinta/10 bg-papel-claro p-5">
+            {ej.media_url && /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(ej.media_url) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={ej.media_url}
+                alt={ej.nombre}
+                loading="lazy"
+                className="mb-3 h-36 w-full rounded-lg object-cover"
+              />
+            )}
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="font-bold text-tinta">{ej.nombre}</h3>
                 <div className="mt-1.5 flex items-center gap-2">
                   <Badge variant={colores[ej.categoria] ?? "estado"}>{ej.categoria}</Badge>
                   <Badge variant="info">{ej.dificultad}</Badge>
+                  {ej.nivel_cinta && <Badge variant="alerta">Cinta {ej.nivel_cinta}</Badge>}
                   {ej.duracion && <span className="text-xs text-tinta/50">{ej.duracion}</span>}
                 </div>
               </div>
@@ -198,6 +244,34 @@ export default function BibliotecaPage() {
               ))}
             </Select>
           </Field>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field label="Cinta (opcional)">
+            <Input
+              value={form.nivel_cinta}
+              onChange={set("nivel_cinta")}
+              placeholder="Ej. Amarilla (vacío = para todas)"
+            />
+          </Field>
+          <Field label="Foto">
+            <input
+              type="file"
+              accept="image/*"
+              disabled={subiendo}
+              onChange={(e) => subirFoto(e.target.files?.[0])}
+              className="w-full text-sm text-tinta file:mr-3 file:rounded-lg file:border-0 file:bg-mantis file:px-3 file:py-2 file:text-sm file:font-semibold file:text-papel"
+            />
+          </Field>
+        </div>
+        <div className="mt-4">
+          <Field label="o URL de foto / video">
+            <Input
+              value={form.media_url}
+              onChange={set("media_url")}
+              placeholder="https://… (YouTube, Instagram, Drive o una imagen)"
+            />
+          </Field>
+          {subiendo && <p className="mt-1 text-xs text-tinta/50">Subiendo foto…</p>}
         </div>
         <div className="mt-4">
           <Field label="Descripción">

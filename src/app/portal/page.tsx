@@ -4,6 +4,9 @@ import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import Badge from "@/components/ui/Badge";
 import CambiarClave from "@/components/CambiarClave";
+import AvisoPago from "@/components/AvisoPago";
+import BloqueoPago from "@/components/BloqueoPago";
+import { temaCinta } from "@/lib/cinta";
 import {
   User,
   Award,
@@ -22,8 +25,11 @@ const formateadorCOP = new Intl.NumberFormat("es-CO", {
 });
 const formatearCOP = (valor: number) => formateadorCOP.format(valor);
 
+const esImagen = (url: string) =>
+  /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url) || url.includes("/storage/v1/object/public/ejercicios/");
+
 export default function PortalPadrePage() {
-  const { data: fichas, isLoading, error } = trpc.usuario.miFichaPadre.useQuery();
+  const { data: fichas, isLoading, error } = trpc.portal.mi.useQuery();
   const [hijoActivoIndex, setHijoActivoIndex] = useState(0);
 
   if (isLoading) {
@@ -63,7 +69,18 @@ export default function PortalPadrePage() {
   }
 
   const fichaActual = fichas[hijoActivoIndex] || fichas[0];
-  const { alumno, pagos, deudas, asistencia } = fichaActual;
+  const {
+    alumno,
+    pagos,
+    deudas,
+    asistencia,
+    bloqueado,
+    mensualidad,
+    recordatorio,
+    evaluaciones,
+    ejercicios,
+  } = fichaActual;
+  const tema = temaCinta(alumno.nivel_cinta);
 
   // Total de deudas pendientes por eventos
   const totalDeudasMonto = deudas.reduce((acc, d) => acc + Number(d.monto_total || 0), 0);
@@ -92,11 +109,23 @@ export default function PortalPadrePage() {
         </div>
       )}
 
+      {bloqueado ? (
+        <BloqueoPago nombre={alumno.nombre} monto={mensualidad.monto} mes={mensualidad.mes} />
+      ) : (
+        <>
+      <AvisoPago recordatorio={recordatorio} />
+
       {/* Encabezado Ficha del Alumno */}
-      <div className="overflow-hidden rounded-2xl border border-tinta/10 bg-papel-claro p-6 shadow-sm">
+      <div
+        className="overflow-hidden rounded-2xl border border-tinta/10 p-6 shadow-sm"
+        style={{ backgroundColor: tema.suave, borderTop: `8px solid ${tema.fondo}` }}
+      >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-dorado bg-mantis text-2xl font-bold text-dorado shadow-inner">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-tinta/20 text-2xl font-bold shadow-inner"
+              style={{ backgroundColor: tema.fondo, color: tema.texto }}
+            >
               武
             </div>
             <div>
@@ -109,7 +138,10 @@ export default function PortalPadrePage() {
                 </Badge>
               </div>
               <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-tinta/60">
-                <span className="inline-flex items-center gap-1 font-semibold text-mantis-dark">
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border border-tinta/20 px-2.5 py-0.5 font-semibold"
+                  style={{ backgroundColor: tema.fondo, color: tema.texto }}
+                >
                   <Award className="h-3.5 w-3.5" /> Cinta {alumno.nivel_cinta}
                 </span>
                 <span>•</span>
@@ -351,7 +383,109 @@ export default function PortalPadrePage() {
                 : "Se recomienda mayor regularidad en los entrenamientos."}
             </p>
           </div>
+
+          {asistencia.recientes.length > 0 && (
+            <div className="mt-2 space-y-1.5 border-t border-tinta/10 pt-3">
+              <p className="text-xs font-semibold text-tinta/60">Últimas clases</p>
+              {asistencia.recientes.slice(0, 6).map((c, i) => (
+                <div key={`${c.fecha}-${i}`} className="flex items-center justify-between text-xs">
+                  <span className="text-tinta/70">
+                    {c.fecha ? new Date(`${c.fecha}T00:00:00`).toLocaleDateString("es-CO") : "—"}
+                    {c.tema ? ` · ${c.tema}` : ""}
+                  </span>
+                  <Badge variant={c.presente ? "exito" : "peligro"}>
+                    {c.presente ? "Asistió" : "Faltó"}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Progreso: evaluaciones */}
+      <div className="rounded-2xl border border-tinta/10 bg-papel-claro p-6 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Award className="h-5 w-5 text-dorado" />
+          <h3 className="font-bold text-tinta">Progreso y evaluaciones</h3>
+        </div>
+        {evaluaciones.length === 0 ? (
+          <p className="mt-4 text-xs text-tinta/50">
+            Aún no hay evaluaciones registradas. Aquí verás los resultados y los cambios de cinta.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {evaluaciones.map((ev) => (
+              <div key={ev.id} className="rounded-xl border border-tinta/5 bg-papel p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold capitalize text-tinta">
+                    {ev.tipo} ·{" "}
+                    {new Date(`${ev.fecha}T00:00:00`).toLocaleDateString("es-CO")}
+                  </span>
+                  <Badge variant={ev.resultado === "apto" ? "exito" : "alerta"}>
+                    {ev.resultado === "apto" ? "Apto" : "No apto"}
+                  </Badge>
+                </div>
+                {ev.nueva_cinta && (
+                  <p className="mt-1 text-xs font-semibold text-mantis-dark">
+                    Nueva cinta: {ev.nueva_cinta}
+                  </p>
+                )}
+                {ev.observaciones && (
+                  <p className="mt-1 text-xs text-tinta/70">{ev.observaciones}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Ejercicios que está aprendiendo */}
+      <div className="rounded-2xl border border-tinta/10 bg-papel-claro p-6 shadow-sm">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-mantis" />
+          <h3 className="font-bold text-tinta">Lo que está aprendiendo</h3>
+        </div>
+        {ejercicios.length === 0 ? (
+          <p className="mt-4 text-xs text-tinta/50">
+            El maestro irá publicando aquí fotos y videos de los ejercicios de su cinta.
+          </p>
+        ) : (
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            {ejercicios.map((ej) => (
+              <div key={ej.id} className="overflow-hidden rounded-xl border border-tinta/10 bg-papel">
+                {ej.media_url &&
+                  (esImagen(ej.media_url) ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={ej.media_url}
+                      alt={ej.nombre}
+                      loading="lazy"
+                      className="h-44 w-full object-cover"
+                    />
+                  ) : (
+                    <a
+                      href={ej.media_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block bg-mantis/10 px-4 py-6 text-center text-sm font-semibold text-mantis-dark hover:bg-mantis/20"
+                    >
+                      Ver video o enlace →
+                    </a>
+                  ))}
+                <div className="p-3">
+                  <p className="font-bold text-tinta">{ej.nombre}</p>
+                  <p className="text-xs capitalize text-tinta/50">
+                    {ej.categoria} · {ej.dificultad}
+                  </p>
+                  {ej.descripcion && (
+                    <p className="mt-1.5 text-xs leading-relaxed text-tinta/70">{ej.descripcion}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Banner de Contacto / Pagos */}
@@ -364,6 +498,9 @@ export default function PortalPadrePage() {
           </p>
         </div>
       </div>
+
+        </>
+      )}
 
       <CambiarClave />
     </div>
