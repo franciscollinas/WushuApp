@@ -2,10 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { obtenerUsuarioRow } from "@/lib/auth";
 
-// Rutas sin sesión obligatoria: login y flujo de contraseña (los enlaces de
-// invitación/recuperación llegan antes de que exista una sesión).
-const PUBLICAS_SIN_SESION = ["/recuperar", "/definir-contrasena"];
-
 // Rutas que el entrenador puede usar (consulta alumnos/grupos + asistencia).
 const ENTRENADOR_PERMITIDAS = ["/alumnos", "/grupos", "/asistencia"];
 
@@ -52,10 +48,6 @@ export async function proxy(request: NextRequest) {
       }
       return supabaseResponse;
     }
-    return supabaseResponse;
-  }
-
-  if (PUBLICAS_SIN_SESION.includes(pathname)) {
     return supabaseResponse;
   }
 

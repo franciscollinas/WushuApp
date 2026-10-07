@@ -10,6 +10,7 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
+import CredencialesModal, { type Credenciales } from "@/components/CredencialesModal";
 import type { AlumnoRow, Categoria, EstadoAlumno } from "@/types/supabase";
 
 const vacio = {
@@ -22,7 +23,6 @@ const vacio = {
   grupo_id: "" as string,
   padre_nombre: "",
   padre_telefono: "",
-  padre_email: "",
   documento: "",
   genero: "",
   peso_kg: "",
@@ -36,14 +36,24 @@ export default function AlumnosPage() {
 
   const [modalAbierto, setModalAbierto] = useState(false);
 
-  const aprobar = trpc.alumno.aprobarInscripcion.useMutation({
+  const [aprobando, setAprobando] = useState<AlumnoRow | null>(null);
+  const [montoPago, setMontoPago] = useState("");
+  const [cintaAprobacion, setCintaAprobacion] = useState("");
+  const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
+  const [busqueda, setBusqueda] = useState("");
+
+  const aprobar = trpc.alumno.aprobarPago.useMutation({
     onSuccess: (r) => {
-      toast.success(
-        r.invitado
-          ? "Alumno aprobado. Se envió la invitación al correo del acudiente."
-          : "Alumno aprobado y vinculado a la cuenta existente."
-      );
+      toast.success("Pago aprobado. Cuenta del padre creada.");
+      setCredenciales({
+        username: r.username,
+        password: r.password,
+        alumno: aprobando?.nombre,
+      });
+      setAprobando(null);
       utils.alumno.list.invalidate();
+      utils.usuario.list.invalidate();
+      utils.pago.list.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -112,7 +122,6 @@ export default function AlumnosPage() {
       grupo_id: a.grupo_id ?? "",
       padre_nombre: a.padre_nombre ?? "",
       padre_telefono: a.padre_telefono ?? "",
-      padre_email: a.padre_email ?? "",
       documento: a.documento ?? "",
       genero: a.genero ?? "",
       peso_kg: a.peso_kg != null ? String(a.peso_kg) : "",
@@ -129,7 +138,6 @@ export default function AlumnosPage() {
       fecha_ingreso: form.fecha_ingreso || null,
       padre_nombre: form.padre_nombre || null,
       padre_telefono: form.padre_telefono || null,
-      padre_email: form.padre_email || null,
       documento: form.documento || null,
       genero: (form.genero as "masculino" | "femenino" | "otro") || null,
       peso_kg: form.peso_kg ? Number(form.peso_kg) : null,
@@ -150,9 +158,13 @@ export default function AlumnosPage() {
         (a) =>
           (!filtroGrupo || a.grupo_id === filtroGrupo) &&
           (!filtroEstado || a.estado === filtroEstado) &&
-          (!filtroCategoria || a.categoria === filtroCategoria)
+          (!filtroCategoria || a.categoria === filtroCategoria) &&
+          (!busqueda ||
+            `${a.nombre} ${a.codigo_inscripcion ?? ""} ${a.documento ?? ""}`
+              .toLowerCase()
+              .includes(busqueda.trim().toLowerCase()))
       ),
-    [alumnos, filtroGrupo, filtroEstado, filtroCategoria]
+    [alumnos, filtroGrupo, filtroEstado, filtroCategoria, busqueda]
   );
 
   const nombreGrupoPorId = useMemo(
@@ -179,11 +191,19 @@ export default function AlumnosPage() {
           className="mb-4 w-full rounded-xl border border-dorado/50 bg-dorado/10 px-4 py-3 text-left text-sm text-tinta transition-colors hover:bg-dorado/20"
         >
           <span className="font-semibold">
-            {pendientes} {pendientes === 1 ? "inscripción" : "inscripciones"} de la web por aprobar
+            {pendientes} {pendientes === 1 ? "inscripción" : "inscripciones"} de la web pendientes de pago
           </span>{" "}
           — toca para revisarlas.
         </button>
       )}
+
+      <div className="mb-3">
+        <Input
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          placeholder="Buscar por nombre, código de inscripción (MB-…) o documento"
+        />
+      </div>
 
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Select value={filtroGrupo} onChange={(e) => setFiltroGrupo(e.target.value)}>
@@ -196,7 +216,7 @@ export default function AlumnosPage() {
         </Select>
         <Select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
           <option value="">Todos los estados</option>
-          <option value="prospecto">Por aprobar</option>
+          <option value="prospecto">Pendiente de pago</option>
           <option value="activo">Activo</option>
           <option value="inactivo">Inactivo</option>
         </Select>
@@ -243,6 +263,11 @@ export default function AlumnosPage() {
                     >
                       {a.nombre}
                     </Link>
+                    {a.estado === "prospecto" && a.codigo_inscripcion && (
+                      <p className="font-mono text-xs font-semibold text-dorado">
+                        {a.codigo_inscripcion}
+                      </p>
+                    )}
                     {(a.padre_telefono || a.padre_nombre) && (
                       <p className="text-xs font-normal text-tinta/40">
                         {a.padre_nombre ?? ""} {a.padre_telefono ?? ""}
@@ -259,7 +284,7 @@ export default function AlumnosPage() {
                   </td>
                   <td className="px-4 py-3">
                     <Badge variant={a.estado === "activo" ? "ok" : a.estado === "prospecto" ? "alerta" : "estado"}>
-                      {a.estado === "prospecto" ? "por aprobar" : a.estado}
+                      {a.estado === "prospecto" ? "pendiente de pago" : a.estado}
                     </Badge>
                   </td>
                   <td className="px-4 py-3 text-tinta/60">{a.padre_nombre ?? "—"}</td>
@@ -268,18 +293,14 @@ export default function AlumnosPage() {
                       {a.estado === "prospecto" && (
                         <>
                           <button
-                            title="Aprobar e invitar al acudiente"
-                            aria-label={`Aprobar a ${a.nombre}`}
-                            disabled={aprobar.isPending}
+                            title="Aprobar pago y crear cuenta del padre"
+                            aria-label={`Aprobar pago de ${a.nombre}`}
                             onClick={() => {
-                              if (
-                                confirm(
-                                  `¿Aprobar a ${a.nombre}? Se enviará una invitación a ${a.padre_email ?? "(sin correo)"} para que el acudiente cree su contraseña.`
-                                )
-                              )
-                                aprobar.mutate({ id: a.id });
+                              setAprobando(a);
+                              setMontoPago("");
+                              setCintaAprobacion("");
                             }}
-                            className="rounded-lg p-2 text-ok transition-colors hover:bg-ok-claro disabled:opacity-50"
+                            className="rounded-lg p-2 text-ok transition-colors hover:bg-ok-claro"
                           >
                             <Check className="h-4 w-4" />
                           </button>
@@ -357,7 +378,7 @@ export default function AlumnosPage() {
           </Field>
           <Field label="Estado">
             <Select value={form.estado} onChange={set("estado")}>
-              <option value="prospecto">Por aprobar</option>
+              <option value="prospecto">Pendiente de pago</option>
               <option value="activo">Activo</option>
               <option value="inactivo">Inactivo</option>
             </Select>
@@ -367,14 +388,6 @@ export default function AlumnosPage() {
           </Field>
           <Field label="Teléfono del padre">
             <Input value={form.padre_telefono ?? ""} onChange={set("padre_telefono")} placeholder="312…" />
-          </Field>
-          <Field label="Correo del padre">
-            <Input
-              type="email"
-              value={form.padre_email ?? ""}
-              onChange={set("padre_email")}
-              placeholder="correo@ejemplo.com"
-            />
           </Field>
           <Field label="Documento de identidad">
             <Input value={form.documento} onChange={set("documento")} placeholder="RC / TI / CC" />
@@ -411,6 +424,65 @@ export default function AlumnosPage() {
           </Button>
         </div>
       </Modal>
+
+      <Modal
+        abierto={!!aprobando}
+        titulo="Aprobar pago de inscripción"
+        onCerrar={() => setAprobando(null)}
+      >
+        {aprobando && (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-tinta/10 bg-papel p-3 text-sm">
+              <p className="font-semibold text-tinta">{aprobando.nombre}</p>
+              <p className="font-mono text-xs font-semibold text-dorado">
+                {aprobando.codigo_inscripcion ?? "Sin código"}
+              </p>
+              <p className="mt-1 text-xs text-tinta/60">
+                Acudiente: {aprobando.padre_nombre ?? "—"} {aprobando.padre_telefono ?? ""}
+              </p>
+            </div>
+            <p className="text-xs text-tinta/70">
+              Confirma solo si el dinero ya llegó a la cuenta. Se creará la cuenta del padre, se
+              registrará la inscripción con el primer mes como pagado y se activará al alumno.
+            </p>
+            <Field label="Monto recibido (COP)">
+              <Input
+                type="number"
+                min="0"
+                value={montoPago}
+                onChange={(e) => setMontoPago(e.target.value)}
+                placeholder="Ej. 80000"
+              />
+            </Field>
+            <Field label="Nivel de cinta (opcional)">
+              <Input
+                value={cintaAprobacion}
+                onChange={(e) => setCintaAprobacion(e.target.value)}
+                placeholder="Sin asignar"
+              />
+            </Field>
+            <div className="flex justify-end gap-3">
+              <Button variant="secundario" onClick={() => setAprobando(null)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={!Number(montoPago) || aprobar.isPending}
+                onClick={() =>
+                  aprobar.mutate({
+                    id: aprobando.id,
+                    monto: Number(montoPago),
+                    nivel_cinta: cintaAprobacion.trim() || "Sin asignar",
+                  })
+                }
+              >
+                {aprobar.isPending ? "Aprobando…" : "Aprobar pago"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <CredencialesModal credenciales={credenciales} onCerrar={() => setCredenciales(null)} />
     </>
   );
 }

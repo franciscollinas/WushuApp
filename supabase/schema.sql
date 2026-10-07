@@ -41,9 +41,12 @@ create table if not exists public.usuario (
   escuela_id uuid not null references public.escuela (id) on delete cascade,
   email text not null unique,
   rol text not null default 'entrenador' check (rol in ('admin', 'entrenador', 'padre')),
+  username text,
   created_at timestamptz not null default now()
 );
 create index if not exists idx_usuario_escuela on public.usuario (escuela_id);
+create unique index if not exists uq_usuario_username
+  on public.usuario (escuela_id, lower(username)) where username is not null;
 
 -- ── grupos ───────────────────────────────────────────────────────────────────
 create table if not exists public.grupo (
@@ -73,6 +76,7 @@ create table if not exists public.alumno (
   padre_nombre text,
   padre_telefono text,
   padre_email text,
+  codigo_inscripcion text,
   documento text,
   genero text,
   peso_kg numeric,
@@ -80,6 +84,8 @@ create table if not exists public.alumno (
   created_at timestamptz not null default now()
 );
 create index if not exists idx_alumno_escuela on public.alumno (escuela_id);
+create unique index if not exists uq_alumno_codigo
+  on public.alumno (escuela_id, codigo_inscripcion) where codigo_inscripcion is not null;
 
 -- ── sesiones de entrenamiento ────────────────────────────────────────────────
 create table if not exists public.sesion (

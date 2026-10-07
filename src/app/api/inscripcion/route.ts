@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { generarCodigoInscripcion } from "@/lib/padres";
 
 // ── Configuración ────────────────────────────────────────────────────────────
 // Orígenes permitidos (CORS), separados por coma.
@@ -69,7 +70,6 @@ const inscripcionSchema = z.object({
   peso_kg: z.coerce.number().positive().max(400).optional(),
   nombre_acudiente: z.string().trim().min(3).max(80),
   telefono: z.string().trim().min(7).max(20),
-  email: z.string().trim().toLowerCase().email().max(120),
 });
 
 // ── Utilidades de respuesta ──────────────────────────────────────────────────
@@ -108,8 +108,9 @@ export async function OPTIONS(request: Request) {
 }
 
 // ── Endpoint público ─────────────────────────────────────────────────────────
-// Solo registra un PROSPECTO. No crea cuentas ni alumnos activos: el admin
-// revisa la solicitud y la aprueba desde /alumnos (ahí se invita al acudiente).
+// Solo registra un PROSPECTO con un código de inscripción. No crea cuentas ni
+// alumnos activos: el padre paga en el club con ese código y el admin aprueba
+// el pago desde /alumnos, que es lo que crea la cuenta del padre.
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
   const ip = ipDe(request);
@@ -189,28 +190,40 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error } = await admin.from("alumno").insert({
-    escuela_id: escuelaId,
-    nombre: input.estudiante,
-    fecha_nacimiento: input.fecha_nacimiento,
-    categoria: categoriaDesdeFecha(input.fecha_nacimiento),
-    nivel_cinta: "",
-    fecha_ingreso: null,
-    estado: "prospecto",
-    documento: input.documento,
-    genero: input.genero,
-    peso_kg: input.peso_kg ?? null,
-    padre_nombre: input.nombre_acudiente,
-    padre_telefono: input.telefono,
-    padre_email: input.email,
-    notas: "Registro vía formulario web",
-  });
-  if (error) {
+  // El código es único por escuela: si choca (muy improbable), se reintenta.
+  let codigo = "";
+  let errorInsert: { code?: string } | null = null;
+  for (let intento = 0; intento < 5; intento++) {
+    codigo = generarCodigoInscripcion();
+    const { error } = await admin.from("alumno").insert({
+      escuela_id: escuelaId,
+      nombre: input.estudiante,
+      fecha_nacimiento: input.fecha_nacimiento,
+      categoria: categoriaDesdeFecha(input.fecha_nacimiento),
+      nivel_cinta: "",
+      fecha_ingreso: null,
+      estado: "prospecto",
+      codigo_inscripcion: codigo,
+      documento: input.documento,
+      genero: input.genero,
+      peso_kg: input.peso_kg ?? null,
+      padre_nombre: input.nombre_acudiente,
+      padre_telefono: input.telefono,
+      notas: "Registro vía formulario web",
+    });
+    errorInsert = error;
+    if (!error || error.code !== "23505") break;
+  }
+  if (errorInsert) {
     return json({ error: "No se pudo guardar el registro. Intenta más tarde." }, 500, origin);
   }
 
   return json(
-    { exito: true, mensaje: "¡Registro recibido! El club revisará tu solicitud y te contactará." },
+    {
+      exito: true,
+      codigo,
+      mensaje: "¡Registro recibido! Entrega este código en el club al pagar tu inscripción.",
+    },
     201,
     origin
   );

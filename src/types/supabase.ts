@@ -38,6 +38,7 @@ export interface AlumnoRow {
   padre_nombre: string | null;
   padre_telefono: string | null;
   padre_email: string | null;
+  codigo_inscripcion: string | null;
   documento: string | null;
   genero: string | null;
   peso_kg: number | null;
@@ -152,6 +153,7 @@ export interface UsuarioRow {
   escuela_id: string;
   email: string;
   rol: RolUsuario;
+  username: string | null;
   created_at: string;
 }
 

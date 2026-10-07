@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import Badge from "@/components/ui/Badge";
+import CambiarClave from "@/components/CambiarClave";
 import {
   User,
   Award,
@@ -363,6 +364,8 @@ export default function PortalPadrePage() {
           </p>
         </div>
       </div>
+
+      <CambiarClave />
     </div>
   );
 }

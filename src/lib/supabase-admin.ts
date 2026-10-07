@@ -13,10 +13,3 @@ export function supabaseAdmin(): SupabaseClient {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }
-
-// URL pública de esta app (para los enlaces de los correos de invitación).
-export function urlApp(): string {
-  const url = process.env.NEXT_PUBLIC_APP_URL;
-  if (!url) throw new Error("Falta NEXT_PUBLIC_APP_URL (URL pública de la app).");
-  return url.replace(/\/$/, "");
-}
