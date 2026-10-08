@@ -96,6 +96,7 @@ export const alumnoRouter = router({
         monto: z.number().positive("El monto debe ser mayor a 0"),
         nivel_cinta: z.string().trim().default(""),
         metodo_pago: z.string().trim().max(40).default("Efectivo"),
+        grupo_id: z.string().min(1).optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -110,6 +111,20 @@ export const alumnoRouter = router({
         .maybeSingle();
       if (!alumno || alumno.estado !== "prospecto") {
         throw new TRPCError({ code: "NOT_FOUND", message: "No hay una inscripción pendiente con ese id." });
+      }
+
+      // El grupo es opcional, pero si viene debe ser de esta escuela. Se valida antes
+      // de crear la cuenta del padre para no dejar nada a medias.
+      if (input.grupo_id) {
+        const { data: grupo } = await admin
+          .from("grupo")
+          .select("id")
+          .eq("escuela_id", escuelaId)
+          .eq("id", input.grupo_id)
+          .maybeSingle();
+        if (!grupo) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "El grupo elegido no existe." });
+        }
       }
 
       // Usuario por defecto: el código sin guion (ej. MB-4F7K → mb4f7k). El admin
@@ -190,7 +205,12 @@ export const alumnoRouter = router({
 
       const { error: errAlumno } = await admin
         .from("alumno")
-        .update({ estado: "activo", nivel_cinta: input.nivel_cinta, fecha_ingreso: hoy })
+        .update({
+          estado: "activo",
+          nivel_cinta: input.nivel_cinta,
+          fecha_ingreso: hoy,
+          ...(input.grupo_id ? { grupo_id: input.grupo_id } : {}),
+        })
         .eq("escuela_id", escuelaId)
         .eq("id", alumno.id);
       if (errAlumno) await deshacer("No se pudo activar al alumno. Intenta de nuevo.");
