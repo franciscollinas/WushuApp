@@ -17,7 +17,7 @@ export default function AlumnoFicha() {
   const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
   const [mes, setMes] = useState(mesActual);
 
-  const { data: reporte } = trpc.reporte.deAlumno.useQuery(
+  const { data: reporte, error: errorReporte } = trpc.reporte.deAlumno.useQuery(
     { alumno_id: id, mes },
     { enabled: !!id }
   );
@@ -27,8 +27,23 @@ export default function AlumnoFicha() {
   const { data: pagos } = trpc.pago.list.useQuery();
   const { data: grupos } = trpc.grupo.list.useQuery();
 
+  if (errorReporte) {
+    return (
+      <div className="mx-auto max-w-md py-16 text-center">
+        <p className="text-sm font-semibold text-tinta">No se pudo cargar la ficha.</p>
+        <p className="mt-1 text-xs text-tinta/60">{errorReporte.message}</p>
+        <Link
+          href="/alumnos"
+          className="mt-4 inline-block text-sm font-semibold text-mantis hover:underline"
+        >
+          Volver a alumnos
+        </Link>
+      </div>
+    );
+  }
+
   if (!reporte) {
-    return <p className="py-16 text-center text-sm text-tinta/40">Cargando ficha…</p>;
+    return <p className="py-16 text-center text-sm text-tinta/60">Cargando ficha…</p>;
   }
 
   const alumno = reporte.alumno;
