@@ -41,6 +41,7 @@ export default function AlumnosPage() {
   const [montoPago, setMontoPago] = useState("");
   const [cintaAprobacion, setCintaAprobacion] = useState("");
   const [metodoAprobacion, setMetodoAprobacion] = useState("Efectivo");
+  const [grupoAprobacion, setGrupoAprobacion] = useState("");
   const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -305,6 +306,7 @@ export default function AlumnosPage() {
                               setAprobando(a);
                               setMontoPago("");
                               setCintaAprobacion("");
+                              setGrupoAprobacion("");
                             }}
                             className="rounded-lg p-2 text-ok transition-colors hover:bg-ok-claro"
                           >
@@ -473,6 +475,16 @@ export default function AlumnosPage() {
                 <option>Otro</option>
               </Select>
             </Field>
+            <Field label="Grupo (para que aparezca en la asistencia)">
+              <Select value={grupoAprobacion} onChange={(e) => setGrupoAprobacion(e.target.value)}>
+                <option value="">Sin grupo por ahora</option>
+                {(grupos ?? []).map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nombre}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Nivel de cinta (opcional)">
               <Input
                 value={cintaAprobacion}
@@ -492,6 +504,7 @@ export default function AlumnosPage() {
                     monto: Number(montoPago),
                     nivel_cinta: cintaAprobacion.trim(),
                     metodo_pago: metodoAprobacion,
+                    ...(grupoAprobacion ? { grupo_id: grupoAprobacion } : {}),
                   })
                 }
               >
