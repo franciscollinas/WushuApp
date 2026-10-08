@@ -7,6 +7,7 @@ import CambiarClave from "@/components/CambiarClave";
 import AvisoPago from "@/components/AvisoPago";
 import BloqueoPago from "@/components/BloqueoPago";
 import { etiquetaCinta, sinCinta, temaCinta } from "@/lib/cinta";
+import { MES_INICIO_APP, nombreMes } from "@/lib/pagos";
 import {
   User,
   Award,
@@ -31,6 +32,7 @@ const esImagen = (url: string) =>
 export default function PortalPadrePage() {
   const { data: fichas, isLoading, error } = trpc.portal.mi.useQuery();
   const [hijoActivoIndex, setHijoActivoIndex] = useState(0);
+  const [mesVista, setMesVista] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -79,10 +81,27 @@ export default function PortalPadrePage() {
     recordatorio,
     razon,
     modalidad,
+    eventos,
     evaluaciones,
     ejercicios,
   } = fichaActual;
   const tema = temaCinta(alumno.nivel_cinta);
+
+  // Comprobantes: el padre elige el mes, solo desde el lanzamiento de la app.
+  const mesElegido =
+    mesVista && mensualidad.mesesDisponibles.includes(mesVista) ? mesVista : mensualidad.mesActual;
+  const pagoElegido = pagos.find((p) => p.mes === mesElegido) ?? null;
+  const hoyBogota = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  const diasPara = (fecha: string) =>
+    Math.round(
+      (new Date(`${fecha}T00:00:00`).getTime() - new Date(`${hoyBogota}T00:00:00`).getTime()) / 86400000
+    );
+  const TIPO_EVENTO: Record<string, string> = {
+    examen: "Examen / grado",
+    torneo: "Torneo",
+    seminario: "Seminario",
+    otro: "Evento",
+  };
 
   // Cada préstamo se calcula por separado: lo pagado de más en uno NO compensa
   // lo que se debe en otro; se muestra como saldo a favor.
@@ -194,6 +213,51 @@ export default function PortalPadrePage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Próximos eventos del club */}
+      <div className="rounded-2xl border border-tinta/10 bg-papel-claro p-6 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-dorado" />
+          <h3 className="font-bold text-tinta">Próximos eventos</h3>
+        </div>
+        {eventos.length === 0 ? (
+          <p className="mt-4 text-xs text-tinta/60">
+            No hay eventos programados por ahora. Aquí verás los exámenes, grados y torneos del club.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {eventos.map((ev) => {
+              const f = new Date(`${ev.fecha}T00:00:00`);
+              const dias = diasPara(ev.fecha);
+              return (
+                <div key={ev.id} className="flex gap-4 rounded-xl border border-tinta/5 bg-papel p-3">
+                  <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-mantis text-white">
+                    <span className="text-xl font-semibold leading-none">{f.getDate()}</span>
+                    <span className="text-[11px] uppercase">
+                      {f.toLocaleDateString("es-CO", { month: "short" }).replace(".", "")}
+                    </span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-bold text-tinta">{ev.nombre}</span>
+                      <Badge variant={ev.tipo === "examen" ? "alerta" : "info"}>
+                        {TIPO_EVENTO[ev.tipo] ?? "Evento"}
+                      </Badge>
+                    </div>
+                    {ev.lugar && <p className="text-xs text-tinta/70">{ev.lugar}</p>}
+                    {ev.descripcion && (
+                      <p className="mt-1 text-xs leading-relaxed text-tinta/70">{ev.descripcion}</p>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right text-xs font-semibold text-mantis-dark">
+                    {dias <= 0 ? "Hoy" : dias === 1 ? "Mañana" : `En ${dias} días`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* SECCIÓN ESTRELLA: Deudas por Eventos / Préstamos Especiales */}
@@ -341,58 +405,90 @@ export default function PortalPadrePage() {
               <CircleDollarSign className="h-5 w-5 text-mantis" />
               <h3 className="font-bold text-tinta">Mensualidades</h3>
             </div>
-            <span className="text-xs text-tinta/50">Historial reciente</span>
+            <select
+              aria-label="Mes de la mensualidad"
+              value={mesElegido}
+              onChange={(e) => setMesVista(e.target.value)}
+              className="min-h-9 rounded-full border border-tinta/20 bg-papel-claro px-3 py-1 text-xs font-semibold capitalize text-tinta outline-none focus:border-mantis"
+            >
+              {mensualidad.mesesDisponibles.map((m) => (
+                <option key={m} value={m}>
+                  {nombreMes(m)}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="mt-4 space-y-2.5">
-            {pagos.length === 0 ? (
-              <p className="py-6 text-center text-xs text-tinta/40">
-                No hay pagos de mensualidad registrados aún.
+          <div className="mt-4 space-y-3">
+            {!pagoElegido ? (
+              <p className="py-6 text-center text-xs text-tinta/60">
+                {modalidad === "becado"
+                  ? "Tienes beca: no hay mensualidades por pagar."
+                  : `No hay pagos registrados en ${nombreMes(mesElegido)}.`}
               </p>
             ) : (
-              pagos.slice(0, 6).map((pago) => (
-                <div
-                  key={pago.id}
-                  className="flex items-center justify-between rounded-xl border border-tinta/5 bg-papel p-3 text-sm"
-                >
+              <>
+                <div className="flex items-center justify-between rounded-xl border border-tinta/5 bg-papel p-3 text-sm">
                   <div>
-                    <div className="font-bold capitalize text-tinta">{pago.mes}</div>
-                    <div className="text-xs text-tinta/50">
-                      Vence: {new Date(pago.fecha_vencimiento).toLocaleDateString("es-CO")}
+                    <div className="font-bold capitalize text-tinta">{nombreMes(pagoElegido.mes)}</div>
+                    <div className="text-xs text-tinta/60">
+                      Vence: {new Date(`${pagoElegido.fecha_vencimiento}T00:00:00`).toLocaleDateString("es-CO")}
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-tinta">
-                      {pago.estado === "parcial"
-                        ? `${formatearCOP(pago.monto_pagado)} de ${formatearCOP(pago.monto)}`
-                        : formatearCOP(pago.monto)}
+                      {formatearCOP(pagoElegido.monto_pagado)} de {formatearCOP(pagoElegido.monto)}
                     </span>
-                    {(pago.abonos ?? []).map((ab: { id: string; comprobante_numero: number | null }) => (
-                      <a
-                        key={ab.id}
-                        href={`/comprobante/${ab.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-semibold text-mantis underline hover:text-mantis-dark"
-                      >
-                        Comprobante{ab.comprobante_numero ? ` #${ab.comprobante_numero}` : ""}
-                      </a>
-                    ))}
                     <Badge
                       variant={
-                        pago.estado === "pagado"
+                        pagoElegido.estado === "pagado"
                           ? "exito"
-                          : pago.estado === "pendiente" || pago.estado === "parcial"
+                          : pagoElegido.estado === "pendiente" || pagoElegido.estado === "parcial"
                           ? "alerta"
                           : "peligro"
                       }
                     >
-                      {pago.estado}
+                      {pagoElegido.estado}
                     </Badge>
                   </div>
                 </div>
-              ))
+
+                {(pagoElegido.abonos ?? []).length === 0 ? (
+                  <p className="text-xs text-tinta/60">Aún no hay pagos registrados para este mes.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-tinta/70">Comprobantes de pago</p>
+                    {(pagoElegido.abonos ?? []).map(
+                      (ab: { id: string; monto: number; fecha_pago: string; comprobante_numero: number | null }) => (
+                        <div
+                          key={ab.id}
+                          className="flex items-center justify-between rounded-xl border border-tinta/5 bg-papel p-3 text-sm"
+                        >
+                          <div>
+                            <div className="font-semibold text-tinta">{formatearCOP(ab.monto)}</div>
+                            <div className="text-xs text-tinta/60">
+                              {new Date(`${ab.fecha_pago}T00:00:00`).toLocaleDateString("es-CO")}
+                              {ab.comprobante_numero ? ` · #${ab.comprobante_numero}` : ""}
+                            </div>
+                          </div>
+                          <a
+                            href={`/comprobante/${ab.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex min-h-9 items-center rounded-full bg-mantis px-4 text-xs font-semibold text-white transition-colors hover:bg-mantis-dark"
+                          >
+                            Generar comprobante
+                          </a>
+                        </div>
+                      )
+                    )}
+                  </div>
+                )}
+              </>
             )}
+            <p className="text-xs text-tinta/60">
+              Puedes consultar los meses desde {nombreMes(MES_INICIO_APP)}.
+            </p>
           </div>
         </div>
 

@@ -267,22 +267,26 @@ export default function AlumnoFicha() {
         </section>
 
         <section className="overflow-hidden rounded-xl border border-tinta/10 bg-papel-claro lg:col-span-2">
-          <header className="border-b border-tinta/10 px-5 py-4">
+          <header className="flex items-center justify-between border-b border-tinta/10 px-5 py-4">
             <h2 className="font-bold text-tinta">Pagos del alumno</h2>
+            <Link href="/pagos" className="text-xs font-semibold text-mantis hover:underline">
+              Corregir o registrar en Pagos
+            </Link>
           </header>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-tinta/10 text-left text-xs uppercase tracking-wide text-tinta/50">
                 <th className="px-5 py-2.5 font-semibold">Mes</th>
-                <th className="px-5 py-2.5 font-semibold">Monto</th>
+                <th className="px-5 py-2.5 font-semibold">Pagado</th>
                 <th className="px-5 py-2.5 font-semibold">Estado</th>
                 <th className="px-5 py-2.5 font-semibold">Vence</th>
+                <th className="px-5 py-2.5 font-semibold">Comprobantes</th>
               </tr>
             </thead>
             <tbody>
               {pagosAlumno.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-5 py-8 text-center text-sm text-tinta/40">
+                  <td colSpan={5} className="px-5 py-8 text-center text-sm text-tinta/40">
                     Sin pagos registrados
                   </td>
                 </tr>
@@ -290,15 +294,42 @@ export default function AlumnoFicha() {
               {pagosAlumno.slice(0, 6).map((p) => (
                 <tr key={p.id} className="border-b border-tinta/5 last:border-0">
                   <td className="px-5 py-3 text-tinta">{p.mes}</td>
-                  <td className="px-5 py-3">${Number(p.monto).toLocaleString("es-CO")}</td>
+                  <td className="px-5 py-3">
+                    ${Number(p.monto_pagado ?? 0).toLocaleString("es-CO")}
+                    <span className="text-tinta/60"> de ${Number(p.monto).toLocaleString("es-CO")}</span>
+                  </td>
                   <td className="px-5 py-3">
                     <Badge
-                      variant={p.estado === "pagado" ? "ok" : p.estado === "vencido" ? "falta" : "estado"}
+                      variant={
+                        p.estado === "pagado"
+                          ? "ok"
+                          : p.estado === "vencido"
+                            ? "falta"
+                            : p.estado === "parcial"
+                              ? "alerta"
+                              : "estado"
+                      }
                     >
                       {p.estado}
                     </Badge>
                   </td>
                   <td className="px-5 py-3 text-tinta/60">{p.fecha_vencimiento}</td>
+                  <td className="px-5 py-3">
+                    <div className="flex flex-wrap gap-2">
+                      {(p.abonos ?? []).length === 0 && <span className="text-tinta/50">—</span>}
+                      {(p.abonos ?? []).map((ab) => (
+                        <a
+                          key={ab.id}
+                          href={`/comprobante/${ab.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold text-mantis hover:underline"
+                        >
+                          {ab.comprobante_numero ? `#${ab.comprobante_numero}` : "Ver"}
+                        </a>
+                      ))}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
