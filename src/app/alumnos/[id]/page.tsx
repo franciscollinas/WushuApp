@@ -27,6 +27,13 @@ export default function AlumnoFicha() {
   const { data: pagos } = trpc.pago.list.useQuery();
   const { data: grupos } = trpc.grupo.list.useQuery();
 
+  // Todos los hooks van antes de cualquier `return` temprano: React exige el mismo
+  // orden de hooks en cada render (si no, error #310 al llegar los datos).
+  const enviarWhatsAppApi = trpc.whatsapp.enviarMensaje.useMutation({
+    onSuccess: () => toast.success("Reporte enviado por WhatsApp API"),
+    onError: (e) => toast.error(e.message),
+  });
+
   if (errorReporte) {
     return (
       <div className="mx-auto max-w-md py-16 text-center">
@@ -107,11 +114,6 @@ export default function AlumnoFicha() {
       "_blank"
     );
   };
-
-  const enviarWhatsAppApi = trpc.whatsapp.enviarMensaje.useMutation({
-    onSuccess: () => toast.success("Reporte enviado por WhatsApp API"),
-    onError: (e) => toast.error(e.message),
-  });
 
   const enviarPorApi = () => {
     const telefono = alumno.padre_telefono;
