@@ -9,7 +9,7 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
-import type { PagoConAlumno } from "@/types/supabase";
+import type { AbonoResumen, PagoConAlumno } from "@/types/supabase";
 
 const METODOS = ["Efectivo", "Transferencia", "Nequi", "Daviplata", "Otro"];
 
@@ -27,6 +27,74 @@ function textoRecordatorio(nombre: string, saldo: number, mes: string) {
 }
 
 const hoyISO = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+
+// Una fila editable por cada pago recibido. Se vuelve a montar al guardar (por su key)
+// para que muestre siempre lo que quedó guardado.
+function FilaAbono({
+  abono,
+  ocupado,
+  onGuardar,
+  onEliminar,
+}: {
+  abono: AbonoResumen;
+  ocupado: boolean;
+  onGuardar: (d: { monto: number; fecha_pago: string; metodo_pago: string; observaciones: string }) => void;
+  onEliminar: () => void;
+}) {
+  const [monto, setMonto] = useState(String(abono.monto));
+  const [fecha, setFecha] = useState(abono.fecha_pago);
+  const [metodo, setMetodo] = useState(abono.metodo_pago ?? "Efectivo");
+  const [obs, setObs] = useState(abono.observaciones ?? "");
+  const metodos = METODOS.includes(metodo) ? METODOS : [...METODOS, metodo];
+
+  return (
+    <div className="space-y-3 rounded-xl border border-tinta/10 p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-semibold text-tinta/70">
+          Pago {abono.comprobante_numero ? `#${abono.comprobante_numero}` : ""}
+        </span>
+        <a
+          href={`/comprobante/${abono.id}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-mantis hover:underline"
+        >
+          Ver comprobante
+        </a>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label="Valor ($)">
+          <Input type="number" min={0} step="500" value={monto} onChange={(e) => setMonto(e.target.value)} />
+        </Field>
+        <Field label="Fecha">
+          <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
+        </Field>
+        <Field label="Método">
+          <Select value={metodo} onChange={(e) => setMetodo(e.target.value)}>
+            {metodos.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </Select>
+        </Field>
+      </div>
+      <Field label="Observaciones">
+        <Input value={obs} onChange={(e) => setObs(e.target.value)} />
+      </Field>
+      <div className="flex justify-end gap-2">
+        <Button variant="peligro" size="sm" disabled={ocupado} onClick={onEliminar}>
+          Eliminar pago
+        </Button>
+        <Button
+          size="sm"
+          disabled={ocupado || !Number(monto) || !fecha}
+          onClick={() => onGuardar({ monto: Number(monto), fecha_pago: fecha, metodo_pago: metodo, observaciones: obs })}
+        >
+          Guardar cambios
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 export default function PagosPage() {
   const utils = trpc.useUtils();
@@ -86,6 +154,27 @@ export default function PagosPage() {
     onSuccess: refrescar,
     onError: (e) => toast.error(e.message),
   });
+  const editarPago = trpc.pago.editarPago.useMutation({
+    onSuccess: () => {
+      toast.success("Cobro actualizado");
+      refrescar();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const editarAbono = trpc.pago.editarAbono.useMutation({
+    onSuccess: () => {
+      toast.success("Pago actualizado");
+      refrescar();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const eliminarAbono = trpc.pago.eliminarAbono.useMutation({
+    onSuccess: () => {
+      toast.success("Pago eliminado");
+      refrescar();
+    },
+    onError: (e) => toast.error(e.message),
+  });
 
   const [modalNuevo, setModalNuevo] = useState(false);
   const [nuevo, setNuevo] = useState({
@@ -96,6 +185,9 @@ export default function PagosPage() {
     observaciones: "",
   });
   const [abonando, setAbonando] = useState<PagoConAlumno | null>(null);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [editCobro, setEditCobro] = useState({ monto: "", vence: "" });
+  const editandoPago = (pagos ?? []).find((p) => p.id === editandoId) ?? null;
   const [abono, setAbono] = useState({ monto: "", metodo_pago: "Efectivo", observaciones: "" });
 
   const filtrados = useMemo(
@@ -114,6 +206,11 @@ export default function PagosPage() {
     () => (alumnos ?? []).filter((a) => a.estado === "activo" && a.modalidad_pago === "becado").length,
     [alumnos]
   );
+
+  const abrirEditar = (p: PagoConAlumno) => {
+    setEditandoId(p.id);
+    setEditCobro({ monto: String(p.monto), vence: p.fecha_vencimiento });
+  };
 
   const abrirAbono = (p: PagoConAlumno) => {
     const saldo = Math.max(0, Number(p.monto) - Number(p.monto_pagado || 0));
@@ -272,6 +369,12 @@ export default function PagosPage() {
                             Comprobante {ab.comprobante_numero ? `#${ab.comprobante_numero}` : ""}
                           </a>
                         ))}
+                        <button
+                          onClick={() => abrirEditar(p)}
+                          className="rounded-full px-2.5 py-1.5 text-xs font-semibold text-tinta/70 transition-colors hover:bg-papel hover:text-tinta"
+                        >
+                          Editar
+                        </button>
                         {saldo > 0 && (
                           <button
                             onClick={() => abrirAbono(p)}
@@ -435,6 +538,93 @@ export default function PagosPage() {
               >
                 Confirmar pago
               </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal abierto={!!editandoPago} titulo="Editar cobro y pagos" onCerrar={() => setEditandoId(null)}>
+        {editandoPago && (
+          <div className="space-y-5">
+            <div className="rounded-xl bg-papel p-3 text-sm">
+              <p className="font-semibold text-tinta">{editandoPago.alumno?.nombre}</p>
+              <p className="text-tinta/70">
+                Mensualidad {editandoPago.mes} · {cop(editandoPago.monto_pagado)} pagados de{" "}
+                {cop(editandoPago.monto)}
+              </p>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-tinta">Cobro del mes</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Valor del cobro ($)">
+                  <Input
+                    type="number"
+                    min={0}
+                    step="500"
+                    value={editCobro.monto}
+                    onChange={(e) => setEditCobro({ ...editCobro, monto: e.target.value })}
+                  />
+                </Field>
+                <Field label="Vence">
+                  <Input
+                    type="date"
+                    value={editCobro.vence}
+                    onChange={(e) => setEditCobro({ ...editCobro, vence: e.target.value })}
+                  />
+                </Field>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={editarPago.isPending || !Number(editCobro.monto) || !editCobro.vence}
+                  onClick={() =>
+                    editarPago.mutate({
+                      id: editandoPago.id,
+                      monto: Number(editCobro.monto),
+                      fecha_vencimiento: editCobro.vence,
+                    })
+                  }
+                >
+                  Guardar cobro
+                </Button>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-semibold text-tinta">Pagos recibidos</p>
+              {(editandoPago.abonos ?? []).length === 0 ? (
+                <p className="rounded-xl border border-dashed border-tinta/20 p-4 text-center text-xs text-tinta/60">
+                  Este cobro no tiene pagos registrados.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {(editandoPago.abonos ?? []).map((ab) => (
+                    <FilaAbono
+                      key={`${ab.id}-${ab.monto}-${ab.fecha_pago}-${ab.metodo_pago}-${ab.observaciones}`}
+                      abono={ab}
+                      ocupado={editarAbono.isPending || eliminarAbono.isPending}
+                      onGuardar={(d) =>
+                        editarAbono.mutate({
+                          id: ab.id,
+                          monto: d.monto,
+                          fecha_pago: d.fecha_pago,
+                          metodo_pago: d.metodo_pago,
+                          observaciones: d.observaciones || undefined,
+                        })
+                      }
+                      onEliminar={() => {
+                        if (
+                          confirm(
+                            `¿Eliminar este pago de ${cop(ab.monto)}? También se borra su comprobante.`
+                          )
+                        )
+                          eliminarAbono.mutate(ab.id);
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

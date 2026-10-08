@@ -98,6 +98,7 @@ export interface AbonoResumen {
   monto: number;
   fecha_pago: string;
   metodo_pago: string | null;
+  observaciones: string | null;
   comprobante_numero: number | null;
 }
 

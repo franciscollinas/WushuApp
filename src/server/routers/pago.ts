@@ -4,12 +4,13 @@ import { getEscuelaId } from "@/lib/tenant";
 import { TRPCError } from "@trpc/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hoyColombia } from "@/lib/padres";
-import { alumnoAlDia, nombreMes } from "@/lib/pagos";
+import { alumnoAlDia, MES_INICIO_APP, nombreMes } from "@/lib/pagos";
 import { sinCinta } from "@/lib/cinta";
 import { protectedProcedure, staffProcedure, adminProcedure, router } from "../trpc";
 import type { PagoConAlumno } from "@/types/supabase";
 
-const SELECT_PAGO = "*, alumno(*), abonos:pago_abono(id, monto, fecha_pago, metodo_pago, comprobante_numero)";
+const SELECT_PAGO =
+  "*, alumno(*), abonos:pago_abono(id, monto, fecha_pago, metodo_pago, observaciones, comprobante_numero)";
 
 const cop = (n: number) => `$${Math.round(n).toLocaleString("es-CO")}`;
 const dosDigitos = (n: number) => String(n).padStart(2, "0");
@@ -177,6 +178,87 @@ export const pagoRouter = router({
       return { abonoId: abono.id as string };
     }),
 
+  // Corrige el cobro de un mes: su valor y su fecha de vencimiento. Si ya hay más
+  // abonado que el nuevo valor hay que ajustar antes los abonos.
+  editarPago: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        monto: z.number().positive("El valor debe ser mayor a 0"),
+        fecha_vencimiento: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const escuelaId = await getEscuelaId();
+      const { data: pago } = await supabase
+        .from("pago")
+        .select("id, monto_pagado")
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id)
+        .maybeSingle();
+      if (!pago) throw new TRPCError({ code: "NOT_FOUND", message: "Cobro no encontrado." });
+      if (input.monto + 0.001 < Number(pago.monto_pagado ?? 0)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Ya hay ${cop(Number(pago.monto_pagado))} abonados: corrige o borra antes los abonos.`,
+        });
+      }
+      const { error } = await supabase
+        .from("pago")
+        .update({ monto: input.monto, fecha_vencimiento: input.fecha_vencimiento })
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      const { error: errCalc } = await supabase.rpc("pago_recalcular", { p_pago: input.id });
+      if (errCalc) throw new Error(errCalc.message);
+      return { success: true };
+    }),
+
+  // Corrige un abono ya registrado (valor, fecha, método u observaciones). El total
+  // del mes no puede superar el valor del cobro.
+  editarAbono: adminProcedure
+    .input(
+      z.object({
+        id: z.string().min(1),
+        monto: z.number().positive("El valor debe ser mayor a 0"),
+        fecha_pago: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        metodo_pago: z.string().trim().max(40).optional(),
+        observaciones: z.string().trim().max(300).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const escuelaId = await getEscuelaId();
+      const { data: ab } = await supabase
+        .from("pago_abono")
+        .select("id, monto, pago(monto, monto_pagado)")
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id)
+        .maybeSingle();
+      if (!ab) throw new TRPCError({ code: "NOT_FOUND", message: "Pago no encontrado." });
+      const pago = (Array.isArray(ab.pago) ? ab.pago[0] : ab.pago) as { monto: number; monto_pagado: number } | null;
+      if (!pago) throw new TRPCError({ code: "NOT_FOUND", message: "Cobro no encontrado." });
+
+      const otros = Number(pago.monto_pagado) - Number(ab.monto);
+      if (otros + input.monto > Number(pago.monto) + 0.001) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `El total superaría el valor del cobro (${cop(Number(pago.monto))}).`,
+        });
+      }
+      const { error } = await supabase
+        .from("pago_abono")
+        .update({
+          monto: input.monto,
+          fecha_pago: input.fecha_pago,
+          metodo_pago: input.metodo_pago || null,
+          observaciones: input.observaciones || null,
+        })
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      return { success: true };
+    }),
+
   // Corrige un error: borra un abono (el estado del mes se recalcula solo).
   eliminarAbono: adminProcedure.input(z.string().min(1)).mutation(async ({ input }) => {
     const escuelaId = await getEscuelaId();
@@ -327,6 +409,12 @@ export const pagoRouter = router({
         .eq("alumno_id", alumno.id)
         .maybeSingle();
       if (!vinculo) throw noEncontrado;
+      if (pago.mes < MES_INICIO_APP) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Solo puedes generar comprobantes desde ${nombreMes(MES_INICIO_APP)}.`,
+        });
+      }
       if (!(await alumnoAlDia(admin, alumno.id))) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Acceso suspendido." });
       }

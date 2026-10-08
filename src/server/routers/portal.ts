@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hoyColombia } from "@/lib/padres";
-import { alumnoAlDia, mesesDe } from "@/lib/pagos";
+import { alumnoAlDia, mesesDe, mesesDesde, MES_INICIO_APP } from "@/lib/pagos";
 import { mismaCinta } from "@/lib/cinta";
 import { protectedProcedure, router } from "../trpc";
 
@@ -55,11 +55,29 @@ export const portalRouter = router({
     const montoMensualidad = Number(escuela?.mensualidad_monto ?? 0);
     const hoy = hoyColombia();
     const { mesActual, mesReferencia } = mesesDe(hoy);
+    const mesesDisponibles = mesesDesde(MES_INICIO_APP, mesActual);
+
+    // Próximos eventos del club (exámenes, torneos, seminarios…), iguales para todos.
+    const { data: eventosRows } = await admin
+      .from("evento")
+      .select("id, nombre, fecha, tipo, lugar, descripcion")
+      .eq("escuela_id", escuelaId)
+      .gte("fecha", hoy)
+      .order("fecha", { ascending: true })
+      .limit(8);
+    const eventos = (eventosRows ?? []) as {
+      id: string;
+      nombre: string;
+      fecha: string;
+      tipo: string;
+      lugar: string | null;
+      descripcion: string | null;
+    }[];
 
     const fichas = [];
     for (const al of alumnos ?? []) {
       const susPagos = (pagos ?? [])
-        .filter((p) => p.alumno_id === al.id)
+        .filter((p) => p.alumno_id === al.id && String(p.mes) >= MES_INICIO_APP)
         .map((p) => ({
           ...p,
           abonos: (abonosRows ?? []).filter((a) => a.pago_id === p.id),
@@ -85,7 +103,7 @@ export const portalRouter = router({
             hora_fin: string;
           } | null,
         },
-        mensualidad: { monto: montoMensualidad, mes: mesReferencia },
+        mensualidad: { monto: montoMensualidad, mes: mesReferencia, mesActual, mesesDisponibles },
         modalidad,
       };
 
@@ -99,6 +117,7 @@ export const portalRouter = router({
           deudas: [],
           asistencia: { totalSesiones: 0, totalPresente: 0, porcentajeAsistencia: 0, recientes: [] },
           evaluaciones: [],
+          eventos: [],
           ejercicios: [],
           recordatorio: null,
         });
@@ -175,6 +194,7 @@ export const portalRouter = router({
           recientes,
         },
         evaluaciones: evaluaciones ?? [],
+        eventos,
         ejercicios: susEjercicios,
         recordatorio: debeMesActual
           ? {

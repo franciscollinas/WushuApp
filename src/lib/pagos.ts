@@ -8,6 +8,26 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 export const DIA_LIMITE_POR_DEFECTO = 5;
 
+// Primer mes cubierto por la app. Los padres solo ven y generan comprobantes desde
+// este mes; lo anterior se manejaba antes de la app y no está registrado en ella.
+export const MES_INICIO_APP = "2026-10";
+
+// Meses (YYYY-MM) desde `inicio` hasta `hasta`, del más reciente al más antiguo.
+export function mesesDesde(inicio: string, hasta: string): string[] {
+  const lista: string[] = [];
+  let [y, m] = hasta.split("-").map(Number);
+  const [yi, mi] = inicio.split("-").map(Number);
+  while (y > yi || (y === yi && m >= mi)) {
+    lista.push(`${y}-${pad(m)}`);
+    m -= 1;
+    if (m === 0) {
+      m = 12;
+      y -= 1;
+    }
+  }
+  return lista;
+}
+
 export function mesesDe(hoy: string, diaLimite = DIA_LIMITE_POR_DEFECTO): {
   mesActual: string;
   mesReferencia: string;
