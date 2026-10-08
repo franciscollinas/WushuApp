@@ -23,24 +23,32 @@ export const reporteRouter = router({
       if (alErr) throw new Error(alErr.message);
       const alumnoRow = alumno as AlumnoRow;
 
-      const { data: grupo, error: grErr } = await supabase
-        .from("grupo")
-        .select("nombre")
-        .eq("escuela_id", escuelaId)
-        .eq("id", alumnoRow.grupo_id ?? "")
-        .maybeSingle();
-      if (grErr) throw new Error(grErr.message);
-      const grupoNombre = grupo ? (grupo as { nombre: string }).nombre : null;
+      // Un alumno recién aprobado puede no tener grupo todavía: en ese caso no hay
+      // grupo ni clases que consultar (y `grupo_id = ''` no es un uuid válido).
+      const grupoId = alumnoRow.grupo_id;
+      let grupoNombre: string | null = null;
+      let sesionIds: string[] = [];
 
-      const { data: sesiones, error: sErr } = await supabase
-        .from("sesion")
-        .select("id")
-        .eq("escuela_id", escuelaId)
-        .eq("grupo_id", alumnoRow.grupo_id ?? "")
-        .gte("fecha", inicio)
-        .lte("fecha", fin);
-      if (sErr) throw new Error(sErr.message);
-      const sesionIds = ((sesiones ?? []) as { id: string }[]).map((s) => s.id);
+      if (grupoId) {
+        const { data: grupo, error: grErr } = await supabase
+          .from("grupo")
+          .select("nombre")
+          .eq("escuela_id", escuelaId)
+          .eq("id", grupoId)
+          .maybeSingle();
+        if (grErr) throw new Error(grErr.message);
+        grupoNombre = grupo ? (grupo as { nombre: string }).nombre : null;
+
+        const { data: sesiones, error: sErr } = await supabase
+          .from("sesion")
+          .select("id")
+          .eq("escuela_id", escuelaId)
+          .eq("grupo_id", grupoId)
+          .gte("fecha", inicio)
+          .lte("fecha", fin);
+        if (sErr) throw new Error(sErr.message);
+        sesionIds = ((sesiones ?? []) as { id: string }[]).map((x) => x.id);
+      }
 
       let presentes = 0;
       const totalSesiones = sesionIds.length;
