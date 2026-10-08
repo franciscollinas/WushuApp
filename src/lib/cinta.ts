@@ -21,7 +21,7 @@ const TEMAS: { clave: RegExp; tema: TemaCinta }[] = [
 ];
 
 const SIN_CINTA: TemaCinta = {
-  nombre: "Sin asignar",
+  nombre: "Sin cinta",
   fondo: "#a8a29e",
   texto: "#ffffff",
   suave: "#f5f5f4",
@@ -34,8 +34,33 @@ function normalizar(s: string): string {
     .replace(/[̀-ͯ]/g, "");
 }
 
+// Un alumno nuevo no tiene cinta hasta su primer examen. Se reconoce el campo
+// vacío y los valores escritos a mano que significan lo mismo ("none", etc.).
+const VALORES_SIN_CINTA = new Set([
+  "",
+  "none",
+  "ninguna",
+  "ninguno",
+  "n/a",
+  "na",
+  "no tiene",
+  "sin cinta",
+  "sin asignar",
+]);
+
+export function sinCinta(nivel: string | null | undefined): boolean {
+  if (!nivel) return true;
+  return VALORES_SIN_CINTA.has(normalizar(nivel).trim());
+}
+
+// Texto para mostrar: "Sin cinta" o el nombre (con o sin la palabra "Cinta").
+export function etiquetaCinta(nivel: string | null | undefined, conPrefijo = false): string {
+  if (sinCinta(nivel)) return "Sin cinta";
+  return conPrefijo ? `Cinta ${nivel}` : String(nivel);
+}
+
 export function temaCinta(nivel: string | null | undefined): TemaCinta {
-  if (!nivel) return SIN_CINTA;
+  if (!nivel || sinCinta(nivel)) return SIN_CINTA;
   const n = normalizar(nivel);
   return TEMAS.find((t) => t.clave.test(n))?.tema ?? SIN_CINTA;
 }

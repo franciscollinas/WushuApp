@@ -5,6 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hoyColombia } from "@/lib/padres";
 import { estaAlDia } from "@/lib/pagos";
+import { sinCinta } from "@/lib/cinta";
 import { protectedProcedure, staffProcedure, adminProcedure, router } from "../trpc";
 import type { PagoConAlumno, PagoRow } from "@/types/supabase";
 
@@ -221,7 +222,7 @@ export const pagoRouter = router({
     }
 
     const grupo = Array.isArray(alumno.grupo) ? alumno.grupo[0] : alumno.grupo;
-    const partes = [grupo?.nombre, alumno.nivel_cinta ? `Cinta ${alumno.nivel_cinta}` : null].filter(Boolean);
+    const partes = [grupo?.nombre, sinCinta(alumno.nivel_cinta) ? null : `Cinta ${alumno.nivel_cinta}`].filter(Boolean);
     return {
       numero: p.comprobante_numero ? `MB-${String(p.comprobante_numero).padStart(6, "0")}` : "—",
       estudiante: alumno.nombre,

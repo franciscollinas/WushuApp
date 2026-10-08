@@ -6,7 +6,7 @@ import Badge from "@/components/ui/Badge";
 import CambiarClave from "@/components/CambiarClave";
 import AvisoPago from "@/components/AvisoPago";
 import BloqueoPago from "@/components/BloqueoPago";
-import { temaCinta } from "@/lib/cinta";
+import { etiquetaCinta, sinCinta, temaCinta } from "@/lib/cinta";
 import {
   User,
   Award,
@@ -148,7 +148,10 @@ export default function PortalPadrePage() {
                   className="inline-flex items-center gap-1 rounded-full border border-tinta/20 px-2.5 py-0.5 font-semibold"
                   style={{ backgroundColor: tema.fondo, color: tema.texto }}
                 >
-                  <Award className="h-3.5 w-3.5" /> Cinta {alumno.nivel_cinta}
+                  <Award className="h-3.5 w-3.5" />{" "}
+                  {sinCinta(alumno.nivel_cinta)
+                    ? "Sin cinta · primer examen pendiente"
+                    : etiquetaCinta(alumno.nivel_cinta, true)}
                 </span>
                 <span>•</span>
                 <span className="capitalize">{alumno.categoria}</span>
