@@ -4,6 +4,7 @@ import { useState } from "react";
 import toast from "react-hot-toast";
 import { trpc } from "@/lib/trpc";
 import PageHeader from "@/components/PageHeader";
+import { etiquetaCinta } from "@/lib/cinta";
 import Button from "@/components/ui/Button";
 import KPI from "@/components/ui/KPI";
 import Badge from "@/components/ui/Badge";
@@ -373,7 +374,7 @@ export default function DeudasPage() {
                                     {asig.alumno?.nombre}
                                   </div>
                                   <div className="text-xs text-tinta/50 capitalize">
-                                    Cinta {asig.alumno?.nivel_cinta} • {asig.alumno?.categoria}
+                                    {etiquetaCinta(asig.alumno?.nivel_cinta, true)} • {asig.alumno?.categoria}
                                   </div>
                                 </td>
                                 <td className="px-4 py-3 font-medium text-tinta">
@@ -556,7 +557,7 @@ export default function DeudasPage() {
               <option value="">-- Selecciona un alumno --</option>
               {(alumnos ?? []).map((a) => (
                 <option key={a.id} value={a.id}>
-                  {a.nombre} ({a.categoria} - {a.nivel_cinta})
+                  {a.nombre} ({a.categoria} - {etiquetaCinta(a.nivel_cinta)})
                 </option>
               ))}
             </Select>

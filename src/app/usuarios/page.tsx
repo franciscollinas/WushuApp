@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import { Field, Input } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
 import CredencialesModal, { type Credenciales } from "@/components/CredencialesModal";
+import { etiquetaCinta } from "@/lib/cinta";
 import { Info, UserCheck, X } from "lucide-react";
 import { useState } from "react";
 import type { RolUsuario } from "@/types/supabase";
@@ -159,7 +160,7 @@ export default function UsuariosPage() {
                                 className="inline-flex items-center gap-1 rounded-md border border-mantis/30 bg-mantis/15 px-2 py-0.5 text-xs font-medium text-mantis-dark"
                               >
                                 <UserCheck className="h-3 w-3" />
-                                {al.nombre} ({al.nivel_cinta})
+                                {al.nombre} ({etiquetaCinta(al.nivel_cinta)})
                                 <button
                                   type="button"
                                   onClick={() =>

@@ -10,6 +10,7 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
+import { sinCinta } from "@/lib/cinta";
 import CredencialesModal, { type Credenciales } from "@/components/CredencialesModal";
 import type { AlumnoRow, Categoria, EstadoAlumno } from "@/types/supabase";
 
@@ -277,7 +278,11 @@ export default function AlumnosPage() {
                   </td>
                   <td className="px-4 py-3 capitalize text-tinta/70">{a.categoria}</td>
                   <td className="px-4 py-3">
-                    {a.nivel_cinta ? <Badge variant="info">{a.nivel_cinta}</Badge> : "—"}
+                    {sinCinta(a.nivel_cinta) ? (
+                      <span className="text-xs text-tinta/60">Sin cinta</span>
+                    ) : (
+                      <Badge variant="info">{a.nivel_cinta}</Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-tinta/70">{a.documento ?? "—"}</td>
                   <td className="px-4 py-3 text-tinta/70">
@@ -362,7 +367,11 @@ export default function AlumnosPage() {
             </Select>
           </Field>
           <Field label="Nivel de cinta">
-            <Input value={form.nivel_cinta} onChange={set("nivel_cinta")} />
+            <Input
+              value={form.nivel_cinta}
+              onChange={set("nivel_cinta")}
+              placeholder="Vacío = sin cinta"
+            />
           </Field>
           <Field label="Fecha de ingreso">
             <Input type="date" value={form.fecha_ingreso} onChange={set("fecha_ingreso")} />
@@ -468,7 +477,7 @@ export default function AlumnosPage() {
               <Input
                 value={cintaAprobacion}
                 onChange={(e) => setCintaAprobacion(e.target.value)}
-                placeholder="Sin asignar"
+                placeholder="Vacío = sin cinta hasta su primer examen"
               />
             </Field>
             <div className="flex justify-end gap-3">
@@ -481,7 +490,7 @@ export default function AlumnosPage() {
                   aprobar.mutate({
                     id: aprobando.id,
                     monto: Number(montoPago),
-                    nivel_cinta: cintaAprobacion.trim() || "Sin asignar",
+                    nivel_cinta: cintaAprobacion.trim(),
                     metodo_pago: metodoAprobacion,
                   })
                 }

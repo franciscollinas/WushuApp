@@ -94,7 +94,7 @@ export const alumnoRouter = router({
       z.object({
         id: z.string().min(1),
         monto: z.number().positive("El monto debe ser mayor a 0"),
-        nivel_cinta: z.string().trim().min(1).default("Sin asignar"),
+        nivel_cinta: z.string().trim().default(""),
         metodo_pago: z.string().trim().max(40).default("Efectivo"),
       })
     )

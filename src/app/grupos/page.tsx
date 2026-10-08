@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Modal from "@/components/ui/Modal";
 import { Field, Input, Select } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
+import { etiquetaCinta } from "@/lib/cinta";
 import type { AlumnoRow, GrupoRow } from "@/types/supabase";
 
 const vacio = {
@@ -168,7 +169,7 @@ export default function GruposPage() {
                 <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-2.5">
                   <div>
                     <p className="text-sm font-medium text-tinta">{a.nombre}</p>
-                    <p className="text-xs text-tinta/40">{a.nivel_cinta}</p>
+                    <p className="text-xs text-tinta/60">{etiquetaCinta(a.nivel_cinta)}</p>
                   </div>
                   <button
                     onClick={() => quitar.mutate(a.id)}
