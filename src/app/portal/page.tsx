@@ -77,6 +77,8 @@ export default function PortalPadrePage() {
     bloqueado,
     mensualidad,
     recordatorio,
+    razon,
+    modalidad,
     evaluaciones,
     ejercicios,
   } = fichaActual;
@@ -116,10 +118,20 @@ export default function PortalPadrePage() {
       )}
 
       {bloqueado ? (
-        <BloqueoPago nombre={alumno.nombre} monto={mensualidad.monto} mes={mensualidad.mes} />
+        <BloqueoPago
+          nombre={alumno.nombre}
+          monto={mensualidad.monto}
+          mes={mensualidad.mes}
+          razon={razon}
+        />
       ) : (
         <>
       <AvisoPago recordatorio={recordatorio} />
+      {modalidad === "becado" && (
+        <div className="rounded-xl bg-mantis-light/60 p-4 text-sm font-semibold text-mantis-dark">
+          Beca deportiva: no tienes mensualidades por pagar. ¡Gracias por tu esfuerzo!
+        </div>
+      )}
 
       {/* Encabezado Ficha del Alumno */}
       <div
@@ -351,23 +363,26 @@ export default function PortalPadrePage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold text-tinta">
-                      {formatearCOP(pago.monto)}
+                      {pago.estado === "parcial"
+                        ? `${formatearCOP(pago.monto_pagado)} de ${formatearCOP(pago.monto)}`
+                        : formatearCOP(pago.monto)}
                     </span>
-                    {pago.estado === "pagado" && (
+                    {(pago.abonos ?? []).map((ab: { id: string; comprobante_numero: number | null }) => (
                       <a
-                        href={`/comprobante/${pago.id}`}
+                        key={ab.id}
+                        href={`/comprobante/${ab.id}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs font-semibold text-mantis underline hover:text-mantis-dark"
                       >
-                        Comprobante
+                        Comprobante{ab.comprobante_numero ? ` #${ab.comprobante_numero}` : ""}
                       </a>
-                    )}
+                    ))}
                     <Badge
                       variant={
                         pago.estado === "pagado"
                           ? "exito"
-                          : pago.estado === "pendiente"
+                          : pago.estado === "pendiente" || pago.estado === "parcial"
                           ? "alerta"
                           : "peligro"
                       }

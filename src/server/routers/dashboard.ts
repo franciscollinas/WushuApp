@@ -32,8 +32,7 @@ export const dashboardRouter = router({
       const activos = ((alumnos ?? []) as AlumnoRow[]).filter((a) => a.estado === "activo");
       const pagosList = (pagos ?? []) as PagoRow[];
       const ingresos = pagosList
-        .filter((p) => p.estado === "pagado")
-        .reduce((sum, p) => sum + (p.monto ?? 0), 0);
+        .reduce((sum, p) => sum + Number(p.monto_pagado ?? 0), 0);
       const pendientes = pagosList.filter((p) => p.estado !== "pagado").length;
 
       let porcentajeAsistencia = 0;

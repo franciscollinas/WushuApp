@@ -1,6 +1,8 @@
 export type Categoria = "infantil" | "juvenil" | "adulto";
 export type EstadoAlumno = "prospecto" | "activo" | "inactivo";
-export type EstadoPago = "pagado" | "pendiente" | "vencido";
+export type EstadoPago = "pagado" | "parcial" | "pendiente" | "vencido";
+export type ModalidadPago = "mensual" | "semanal" | "becado";
+export type AccesoManual = "auto" | "activo" | "suspendido";
 
 export type PlanEscuela = "basico" | "pro";
 
@@ -22,6 +24,7 @@ export interface GrupoRow {
   hora_inicio: string;
   hora_fin: string;
   entrenador: string;
+  dia_limite_pago: number;
   created_at: string;
 }
 
@@ -39,6 +42,8 @@ export interface AlumnoRow {
   padre_telefono: string | null;
   padre_email: string | null;
   codigo_inscripcion: string | null;
+  modalidad_pago: ModalidadPago;
+  acceso_manual: AccesoManual;
   documento: string | null;
   genero: string | null;
   peso_kg: number | null;
@@ -73,6 +78,7 @@ export interface PagoRow {
   estado: EstadoPago;
   fecha_pago: string | null;
   fecha_vencimiento: string;
+  monto_pagado: number;
   metodo_pago: string | null;
   observaciones: string | null;
   comprobante_numero: number | null;
@@ -87,8 +93,17 @@ export interface SesionConAsistencia extends SesionRow {
   asistencia: AsistenciaConAlumno[];
 }
 
+export interface AbonoResumen {
+  id: string;
+  monto: number;
+  fecha_pago: string;
+  metodo_pago: string | null;
+  comprobante_numero: number | null;
+}
+
 export interface PagoConAlumno extends PagoRow {
   alumno: AlumnoRow | null;
+  abonos: AbonoResumen[];
 }
 
 export interface GrupoConAlumnos extends GrupoRow {
