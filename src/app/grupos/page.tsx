@@ -18,6 +18,7 @@ const vacio = {
   hora_inicio: "",
   hora_fin: "",
   entrenador: "",
+  dia_limite_pago: "5",
 };
 
 export default function GruposPage() {
@@ -81,13 +82,15 @@ export default function GruposPage() {
       hora_inicio: g.hora_inicio,
       hora_fin: g.hora_fin,
       entrenador: g.entrenador,
+      dia_limite_pago: String(g.dia_limite_pago ?? 5),
     });
     setModalAbierto(true);
   };
 
   const guardar = () => {
-    if (editando) actualizar.mutate({ ...form, id: editando });
-    else crear.mutate(form);
+    const payload = { ...form, dia_limite_pago: Math.min(28, Math.max(1, Number(form.dia_limite_pago) || 5)) };
+    if (editando) actualizar.mutate({ ...payload, id: editando });
+    else crear.mutate(payload);
     setModalAbierto(false);
   };
 
@@ -208,6 +211,15 @@ export default function GruposPage() {
           </Field>
           <Field label="Entrenador">
             <Input value={form.entrenador} onChange={set("entrenador")} required />
+          </Field>
+          <Field label="Día límite de pago (1 a 28)">
+            <Input
+              type="number"
+              min={1}
+              max={28}
+              value={form.dia_limite_pago}
+              onChange={set("dia_limite_pago")}
+            />
           </Field>
           <Field label="Hora inicio">
             <Input type="time" value={form.hora_inicio} onChange={set("hora_inicio")} required />

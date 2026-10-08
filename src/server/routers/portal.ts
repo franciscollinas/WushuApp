@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hoyColombia } from "@/lib/padres";
-import { estaAlDia, mesesDe, DIA_LIMITE_PAGO } from "@/lib/pagos";
+import { alumnoAlDia, mesesDe } from "@/lib/pagos";
 import { mismaCinta } from "@/lib/cinta";
 import { protectedProcedure, router } from "../trpc";
 
@@ -30,7 +30,7 @@ export const portalRouter = router({
       admin
         .from("alumno")
         .select(
-          "id, nombre, fecha_nacimiento, categoria, nivel_cinta, estado, fecha_ingreso, created_at, grupo(*)"
+          "id, nombre, fecha_nacimiento, categoria, nivel_cinta, estado, fecha_ingreso, created_at, modalidad_pago, acceso_manual, grupo(*)"
         )
         .eq("escuela_id", escuelaId)
         .in("id", ids),
@@ -43,16 +43,32 @@ export const portalRouter = router({
     ]);
     if (errAl) throw new Error(errAl.message);
 
+    const pagoIds = (pagos ?? []).map((p) => p.id as string);
+    const { data: abonosRows } = pagoIds.length
+      ? await admin
+          .from("pago_abono")
+          .select("id, pago_id, monto, fecha_pago, comprobante_numero")
+          .in("pago_id", pagoIds)
+          .order("fecha_pago", { ascending: false })
+      : { data: [] as { id: string; pago_id: string; monto: number; fecha_pago: string; comprobante_numero: number | null }[] };
+
     const montoMensualidad = Number(escuela?.mensualidad_monto ?? 0);
     const hoy = hoyColombia();
     const { mesActual, mesReferencia } = mesesDe(hoy);
 
     const fichas = [];
     for (const al of alumnos ?? []) {
-      const susPagos = (pagos ?? []).filter((p) => p.alumno_id === al.id);
-      const pagados = susPagos.filter((p) => p.estado === "pagado").map((p) => p.mes as string);
+      const susPagos = (pagos ?? [])
+        .filter((p) => p.alumno_id === al.id)
+        .map((p) => ({
+          ...p,
+          abonos: (abonosRows ?? []).filter((a) => a.pago_id === p.id),
+        }));
       const ingreso = String(al.fecha_ingreso ?? al.created_at).slice(0, 10);
-      const alDia = estaAlDia(hoy, ingreso, pagados);
+      const alDia = await alumnoAlDia(admin, al.id as string);
+      const grupoAl = (Array.isArray(al.grupo) ? al.grupo[0] : al.grupo) as { dia_limite_pago?: number } | null;
+      const limite = Number(grupoAl?.dia_limite_pago ?? 5);
+      const modalidad = String(al.modalidad_pago ?? "mensual");
 
       const base = {
         alumno: {
@@ -70,6 +86,7 @@ export const portalRouter = router({
           } | null,
         },
         mensualidad: { monto: montoMensualidad, mes: mesReferencia },
+        modalidad,
       };
 
       // Bloqueado: no se devuelve nada del hijo salvo lo mínimo para el aviso.
@@ -77,6 +94,7 @@ export const portalRouter = router({
         fichas.push({
           ...base,
           bloqueado: true as const,
+          razon: (al.acceso_manual === "suspendido" ? "club" : "pago") as "club" | "pago",
           pagos: [],
           deudas: [],
           asistencia: { totalSesiones: 0, totalPresente: 0, porcentajeAsistencia: 0, recientes: [] },
@@ -133,13 +151,21 @@ export const portalRouter = router({
           (e.media_url || e.descripcion)
       );
 
-      // Recordatorio: mensualidad del mes en curso sin pagar (desde el día 1).
+      // Recordatorio: lo que falta de la mensualidad del mes en curso (desde el día 1).
+      // Los becados no deben nada.
       const pagoMes = susPagos.find((p) => p.mes === mesActual);
-      const debeMesActual = ingreso.slice(0, 7) <= mesActual && pagoMes?.estado !== "pagado";
+      const montoMes = Number(pagoMes?.monto ?? montoMensualidad);
+      const saldoMes = Math.max(0, montoMes - Number(pagoMes?.monto_pagado ?? 0));
+      const debeMesActual =
+        modalidad !== "becado" &&
+        ingreso.slice(0, 7) <= mesActual &&
+        pagoMes?.estado !== "pagado" &&
+        montoMes > 0;
 
       fichas.push({
         ...base,
         bloqueado: false as const,
+        razon: null,
         pagos: susPagos,
         deudas: deudas ?? [],
         asistencia: {
@@ -153,8 +179,9 @@ export const portalRouter = router({
         recordatorio: debeMesActual
           ? {
               mes: mesActual,
-              monto: Number(pagoMes?.monto ?? montoMensualidad),
-              vence: `${mesActual}-${String(DIA_LIMITE_PAGO).padStart(2, "0")}`,
+              monto: saldoMes,
+              vence: `${mesActual}-${String(limite).padStart(2, "0")}`,
+              cuotaSemanal: modalidad === "semanal" ? montoMes / 4 : null,
             }
           : null,
       });

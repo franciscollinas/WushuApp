@@ -61,9 +61,7 @@ const herramientas: Herramienta[] = [
 
       const activos = ((alumnos ?? []) as AlumnoRow[]).filter((a) => a.estado === "activo");
       const pagosList = (pagos ?? []) as PagoConAlumno[];
-      const ingresos = pagosList
-        .filter((p) => p.estado === "pagado")
-        .reduce((sum, p) => sum + (p.monto ?? 0), 0);
+      const ingresos = pagosList.reduce((sum, p) => sum + Number(p.monto_pagado ?? 0), 0);
       const pendientes = pagosList.filter((p) => p.estado !== "pagado").length;
 
       let asistencia = 0;
@@ -176,7 +174,7 @@ const herramientas: Herramienta[] = [
         .from("pago")
         .select("mes, monto, estado, alumno(nombre)")
         .eq("escuela_id", escuelaId)
-        .in("estado", ["pendiente", "vencido"]);
+        .in("estado", ["pendiente", "parcial", "vencido"]);
       if (error) return `Error consultando pagos: ${error.message}`;
 
       const resultado = (data as unknown as {

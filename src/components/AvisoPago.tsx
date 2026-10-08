@@ -7,7 +7,8 @@ import { nombreMes } from "@/lib/pagos";
 export interface Recordatorio {
   mes: string; // YYYY-MM
   monto: number;
-  vence: string; // YYYY-MM-DD
+  vence: string; // YYYY-MM-DD (día límite del grupo)
+  cuotaSemanal?: number | null;
 }
 
 const cop = new Intl.NumberFormat("es-CO", {
@@ -35,7 +36,7 @@ export default function AvisoPago({ recordatorio }: { recordatorio: Recordatorio
       // Sin almacenamiento: se notifica igual, una vez por carga.
     }
     new Notification("Mantis Box · Mensualidad pendiente", {
-      body: `La mensualidad de ${nombreMes(recordatorio.mes)} (${cop.format(recordatorio.monto)}) vence el día 5.`,
+      body: `Falta ${cop.format(recordatorio.monto)} de la mensualidad de ${nombreMes(recordatorio.mes)}. Fecha límite: día ${Number(recordatorio.vence.slice(8))}.`,
     });
   }, [recordatorio, permiso]);
 
@@ -58,8 +59,12 @@ export default function AvisoPago({ recordatorio }: { recordatorio: Recordatorio
             Recordatorio: mensualidad de {nombreMes(recordatorio.mes)}
           </p>
           <p className="text-tinta/70">
-            Valor {cop.format(recordatorio.monto)}. Debe estar pagada antes del día 5; después de
-            esa fecha el acceso se suspende hasta que el club confirme el pago.
+            Falta {cop.format(recordatorio.monto)}.
+            {recordatorio.cuotaSemanal
+              ? ` Puedes pagar por semana (cuota de ${cop.format(recordatorio.cuotaSemanal)}).`
+              : ""}{" "}
+            Debe estar al día desde el día {Number(recordatorio.vence.slice(8))}; después de esa
+            fecha el acceso se suspende hasta que el club confirme el pago.
           </p>
         </div>
       </div>

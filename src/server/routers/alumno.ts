@@ -21,6 +21,8 @@ const alumnoInput = z.object({
   genero: z.enum(["masculino", "femenino", "otro"]).nullable().optional(),
   peso_kg: z.number().positive().max(400).nullable().optional(),
   notas: z.string().nullable().optional(),
+  modalidad_pago: z.enum(["mensual", "semanal", "becado"]).default("mensual"),
+  acceso_manual: z.enum(["auto", "activo", "suspendido"]).default("auto"),
 });
 
 export const alumnoRouter = router({
@@ -74,6 +76,21 @@ export const alumnoRouter = router({
       return data as AlumnoRow;
     }),
 
+  // Interruptor de acceso del padre: 'auto' (según pagos), 'activo' (siempre puede
+  // entrar) o 'suspendido' (no puede entrar). Manda sobre la regla del día límite.
+  setAcceso: adminProcedure
+    .input(z.object({ id: z.string().min(1), acceso_manual: z.enum(["auto", "activo", "suspendido"]) }))
+    .mutation(async ({ input }) => {
+      const escuelaId = await getEscuelaId();
+      const { error } = await supabase
+        .from("alumno")
+        .update({ acceso_manual: input.acceso_manual })
+        .eq("escuela_id", escuelaId)
+        .eq("id", input.id);
+      if (error) throw new Error(error.message);
+      return { success: true };
+    }),
+
   delete: adminProcedure.input(z.string()).mutation(async ({ input }) => {
     const escuelaId = await getEscuelaId();
     const { error } = await supabase
@@ -93,7 +110,8 @@ export const alumnoRouter = router({
     .input(
       z.object({
         id: z.string().min(1),
-        monto: z.number().positive("El monto debe ser mayor a 0"),
+        monto: z.number().min(0).default(0),
+        modalidad_pago: z.enum(["mensual", "semanal", "becado"]).default("mensual"),
         nivel_cinta: z.string().trim().default(""),
         metodo_pago: z.string().trim().max(40).default("Efectivo"),
         grupo_id: z.string().min(1).optional(),
@@ -102,6 +120,10 @@ export const alumnoRouter = router({
     .mutation(async ({ input }) => {
       const escuelaId = await getEscuelaId();
       const admin = supabaseAdmin();
+
+      if (input.modalidad_pago !== "becado" && input.monto <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Escribe el monto recibido." });
+      }
 
       const { data: alumno } = await admin
         .from("alumno")
@@ -184,24 +206,38 @@ export const alumnoRouter = router({
         );
       if (errLink) await deshacer("No se pudo vincular al padre con el alumno. Intenta de nuevo.");
 
-      // Primer mes pagado: la mensualidad del mes en curso queda al día.
+      // Primer mes pagado: se crea el cobro del mes y se registra el pago como abono
+      // (genera su comprobante). Un becado no paga nada.
       const hoy = hoyColombia();
       const mes = hoy.slice(0, 7);
-      const { error: errPago } = await admin.from("pago").upsert(
-        {
+      if (input.modalidad_pago !== "becado") {
+        const { data: pagoMes, error: errPago } = await admin
+          .from("pago")
+          .upsert(
+            {
+              escuela_id: escuelaId,
+              alumno_id: alumno.id,
+              mes,
+              monto: input.monto,
+              estado: "pendiente",
+              fecha_vencimiento: `${mes}-05`,
+            },
+            { onConflict: "alumno_id,mes" }
+          )
+          .select("id")
+          .single();
+        if (errPago || !pagoMes) await deshacer("No se pudo registrar el pago. Intenta de nuevo.");
+
+        const { error: errAbono } = await admin.from("pago_abono").insert({
           escuela_id: escuelaId,
-          alumno_id: alumno.id,
-          mes,
+          pago_id: pagoMes!.id,
           monto: input.monto,
-          estado: "pagado",
           fecha_pago: hoy,
-          fecha_vencimiento: `${mes}-05`,
           metodo_pago: input.metodo_pago,
           observaciones: "Inscripción y primer mes",
-        },
-        { onConflict: "alumno_id,mes" }
-      );
-      if (errPago) await deshacer("No se pudo registrar el pago. Intenta de nuevo.");
+        });
+        if (errAbono) await deshacer("No se pudo registrar el pago. Intenta de nuevo.");
+      }
 
       const { error: errAlumno } = await admin
         .from("alumno")
@@ -209,6 +245,7 @@ export const alumnoRouter = router({
           estado: "activo",
           nivel_cinta: input.nivel_cinta,
           fecha_ingreso: hoy,
+          modalidad_pago: input.modalidad_pago,
           ...(input.grupo_id ? { grupo_id: input.grupo_id } : {}),
         })
         .eq("escuela_id", escuelaId)

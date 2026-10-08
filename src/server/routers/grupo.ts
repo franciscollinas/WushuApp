@@ -11,6 +11,7 @@ const grupoInput = z.object({
   hora_inicio: z.string().min(1),
   hora_fin: z.string().min(1),
   entrenador: z.string().min(1),
+  dia_limite_pago: z.number().int().min(1).max(28).default(5),
 });
 
 export const grupoRouter = router({

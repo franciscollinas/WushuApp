@@ -12,7 +12,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import PageHeader from "@/components/PageHeader";
 import { sinCinta } from "@/lib/cinta";
 import CredencialesModal, { type Credenciales } from "@/components/CredencialesModal";
-import type { AlumnoRow, Categoria, EstadoAlumno } from "@/types/supabase";
+import type { AccesoManual, AlumnoRow, Categoria, EstadoAlumno, ModalidadPago } from "@/types/supabase";
 
 const vacio = {
   nombre: "",
@@ -28,6 +28,8 @@ const vacio = {
   genero: "",
   peso_kg: "",
   notas: "",
+  modalidad_pago: "mensual" as ModalidadPago,
+  acceso_manual: "auto" as AccesoManual,
 };
 
 export default function AlumnosPage() {
@@ -42,6 +44,7 @@ export default function AlumnosPage() {
   const [cintaAprobacion, setCintaAprobacion] = useState("");
   const [metodoAprobacion, setMetodoAprobacion] = useState("Efectivo");
   const [grupoAprobacion, setGrupoAprobacion] = useState("");
+  const [modalidadAprobacion, setModalidadAprobacion] = useState<ModalidadPago>("mensual");
   const [credenciales, setCredenciales] = useState<Credenciales | null>(null);
   const [busqueda, setBusqueda] = useState("");
 
@@ -57,6 +60,13 @@ export default function AlumnosPage() {
       utils.alumno.list.invalidate();
       utils.usuario.list.invalidate();
       utils.pago.list.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const setAcceso = trpc.alumno.setAcceso.useMutation({
+    onSuccess: () => {
+      toast.success("Acceso actualizado");
+      utils.alumno.list.invalidate();
     },
     onError: (e) => toast.error(e.message),
   });
@@ -129,6 +139,8 @@ export default function AlumnosPage() {
       genero: a.genero ?? "",
       peso_kg: a.peso_kg != null ? String(a.peso_kg) : "",
       notas: a.notas ?? "",
+      modalidad_pago: a.modalidad_pago ?? "mensual",
+      acceso_manual: a.acceso_manual ?? "auto",
     });
     setModalAbierto(true);
   };
@@ -242,6 +254,7 @@ export default function AlumnosPage() {
                 <th className="px-4 py-3 font-semibold">Documento</th>
                 <th className="px-4 py-3 font-semibold">Grupo</th>
                 <th className="px-4 py-3 font-semibold">Estado</th>
+                <th className="px-4 py-3 font-semibold">Acceso a la app</th>
                 <th className="px-4 py-3 font-semibold">Padre / acudiente</th>
                 <th className="px-4 py-3 font-semibold text-right">Acciones</th>
               </tr>
@@ -249,7 +262,7 @@ export default function AlumnosPage() {
             <tbody>
               {filtrados.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-sm text-tinta/40">
+                  <td colSpan={9} className="px-4 py-12 text-center text-sm text-tinta/40">
                     No hay alumnos
                   </td>
                 </tr>
@@ -294,6 +307,35 @@ export default function AlumnosPage() {
                       {a.estado === "prospecto" ? "pendiente de pago" : a.estado}
                     </Badge>
                   </td>
+                  <td className="px-4 py-3">
+                    {a.estado === "prospecto" ? (
+                      <span className="text-tinta/50">—</span>
+                    ) : (
+                      <div className="flex flex-col items-start gap-1">
+                        {a.modalidad_pago === "becado" && <Badge variant="info">Becado</Badge>}
+                        {a.modalidad_pago === "semanal" && <Badge variant="alerta">Paga semanal</Badge>}
+                        <select
+                          aria-label={`Acceso de ${a.nombre}`}
+                          value={a.acceso_manual ?? "auto"}
+                          disabled={setAcceso.isPending}
+                          onChange={(e) =>
+                            setAcceso.mutate({ id: a.id, acceso_manual: e.target.value as AccesoManual })
+                          }
+                          className={`min-h-9 rounded-full border px-3 py-1 text-xs font-semibold outline-none focus:border-mantis ${
+                            a.acceso_manual === "suspendido"
+                              ? "border-falta/40 bg-falta-claro text-falta"
+                              : a.acceso_manual === "activo"
+                                ? "border-mantis/40 bg-mantis-light/50 text-mantis-dark"
+                                : "border-tinta/20 bg-papel-claro text-tinta"
+                          }`}
+                        >
+                          <option value="auto">Automático (según pago)</option>
+                          <option value="activo">Siempre activo</option>
+                          <option value="suspendido">Suspendido</option>
+                        </select>
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-tinta/60">{a.padre_nombre ?? "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
@@ -307,6 +349,7 @@ export default function AlumnosPage() {
                               setMontoPago("");
                               setCintaAprobacion("");
                               setGrupoAprobacion("");
+                              setModalidadAprobacion("mensual");
                             }}
                             className="rounded-lg p-2 text-ok transition-colors hover:bg-ok-claro"
                           >
@@ -395,6 +438,20 @@ export default function AlumnosPage() {
               <option value="inactivo">Inactivo</option>
             </Select>
           </Field>
+          <Field label="Modalidad de pago">
+            <Select value={form.modalidad_pago} onChange={set("modalidad_pago")}>
+              <option value="mensual">Mensual</option>
+              <option value="semanal">Semanal (paga por partes)</option>
+              <option value="becado">Becado (no paga)</option>
+            </Select>
+          </Field>
+          <Field label="Acceso a la app del padre">
+            <Select value={form.acceso_manual} onChange={set("acceso_manual")}>
+              <option value="auto">Automático (según pago)</option>
+              <option value="activo">Siempre activo</option>
+              <option value="suspendido">Suspendido</option>
+            </Select>
+          </Field>
           <Field label="Nombre del padre / acudiente">
             <Input value={form.padre_nombre ?? ""} onChange={set("padre_nombre")} />
           </Field>
@@ -457,15 +514,27 @@ export default function AlumnosPage() {
               Confirma solo si el dinero ya llegó a la cuenta. Se creará la cuenta del padre, se
               registrará la inscripción con el primer mes como pagado y se activará al alumno.
             </p>
-            <Field label="Monto recibido (COP)">
-              <Input
-                type="number"
-                min="0"
-                value={montoPago}
-                onChange={(e) => setMontoPago(e.target.value)}
-                placeholder="Ej. 80000"
-              />
+            <Field label="Modalidad de pago">
+              <Select
+                value={modalidadAprobacion}
+                onChange={(e) => setModalidadAprobacion(e.target.value as ModalidadPago)}
+              >
+                <option value="mensual">Mensual</option>
+                <option value="semanal">Semanal (paga por partes)</option>
+                <option value="becado">Becado (no paga)</option>
+              </Select>
             </Field>
+            {modalidadAprobacion !== "becado" && (
+              <Field label="Monto recibido (COP)">
+                <Input
+                  type="number"
+                  min="0"
+                  value={montoPago}
+                  onChange={(e) => setMontoPago(e.target.value)}
+                  placeholder="Ej. 80000"
+                />
+              </Field>
+            )}
             <Field label="Método de pago">
               <Select value={metodoAprobacion} onChange={(e) => setMetodoAprobacion(e.target.value)}>
                 <option>Efectivo</option>
@@ -497,11 +566,12 @@ export default function AlumnosPage() {
                 Cancelar
               </Button>
               <Button
-                disabled={!Number(montoPago) || aprobar.isPending}
+                disabled={(modalidadAprobacion !== "becado" && !Number(montoPago)) || aprobar.isPending}
                 onClick={() =>
                   aprobar.mutate({
                     id: aprobando.id,
-                    monto: Number(montoPago),
+                    monto: modalidadAprobacion === "becado" ? 0 : Number(montoPago),
+                    modalidad_pago: modalidadAprobacion,
                     nivel_cinta: cintaAprobacion.trim(),
                     metodo_pago: metodoAprobacion,
                     ...(grupoAprobacion ? { grupo_id: grupoAprobacion } : {}),
