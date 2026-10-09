@@ -6,6 +6,7 @@ import Badge from "@/components/ui/Badge";
 import CambiarClave from "@/components/CambiarClave";
 import AvisoPago from "@/components/AvisoPago";
 import BloqueoPago from "@/components/BloqueoPago";
+import FotoAlumno from "@/components/FotoAlumno";
 import { etiquetaCinta, sinCinta, temaCinta } from "@/lib/cinta";
 import { MES_INICIO_APP, nombreMes } from "@/lib/pagos";
 import {
@@ -30,6 +31,7 @@ const esImagen = (url: string) =>
   /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(url) || url.includes("/storage/v1/object/public/ejercicios/");
 
 export default function PortalPadrePage() {
+  const utils = trpc.useUtils();
   const { data: fichas, isLoading, error } = trpc.portal.mi.useQuery();
   const [hijoActivoIndex, setHijoActivoIndex] = useState(0);
   const [mesVista, setMesVista] = useState<string | null>(null);
@@ -159,12 +161,14 @@ export default function PortalPadrePage() {
       >
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div
-              className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-tinta/20 text-2xl font-bold shadow-inner"
-              style={{ backgroundColor: tema.fondo, color: tema.texto }}
-            >
-              武
-            </div>
+            <FotoAlumno
+              alumnoId={alumno.id}
+              nombre={alumno.nombre}
+              fotoUrl={alumno.foto_url}
+              fondo={tema.fondo}
+              color={tema.texto}
+              onCambio={() => utils.portal.mi.invalidate()}
+            />
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-black tracking-tight text-tinta">

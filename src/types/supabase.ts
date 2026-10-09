@@ -48,6 +48,7 @@ export interface AlumnoRow {
   genero: string | null;
   peso_kg: number | null;
   notas: string | null;
+  foto_url: string | null;
   created_at: string;
 }
 
