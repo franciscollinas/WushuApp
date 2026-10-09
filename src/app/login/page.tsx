@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { browserSupabase } from "@/lib/supabase-browser";
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [cargando, setCargando] = useState(false);
+  const [verClave, setVerClave] = useState(false);
 
   // Mientras .env.local no tenga un proyecto real, el login no puede funcionar:
   // avisarlo en la propia pantalla en lugar de dejar un formulario "mudo".
@@ -24,16 +26,19 @@ export default function LoginPage() {
     try {
       const { error } = await browserSupabase().auth.signInWithPassword({
         // Los padres entran con un usuario (sin @); el personal con su correo.
-        email: email.includes("@") ? email.trim() : emailDeUsuario(email),
-        password,
+        // Al copiar/pegar suelen colarse espacios o saltos de línea: se quitan.
+        email: email.includes("@") ? email.trim() : emailDeUsuario(email.replace(/\s+/g, "")),
+        password: password.trim(),
       });
       if (error) throw error;
       // El proxy redirige por rol (entrenador → /asistencia, admin → /).
       router.replace("/");
       router.refresh();
     } catch (err) {
-      const mensaje =
-        err instanceof Error && err.message
+      const invalidas = err instanceof Error && /invalid login credentials/i.test(err.message);
+      const mensaje = invalidas
+        ? "Usuario o contraseña incorrectos. Usa el botón del ojo para revisar la contraseña."
+        : err instanceof Error && err.message
           ? err.message
           : "No se pudo iniciar sesión. Revisa tus credenciales.";
       toast.error(mensaje);
@@ -93,16 +98,29 @@ export default function LoginPage() {
           <label className="mb-1.5 block text-[13px] font-semibold text-tinta/70" htmlFor="password">
             Contraseña
           </label>
-          <input
-            id="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="mb-6 min-h-11 w-full rounded-xl border border-tinta/20 bg-white px-4 py-2.5 text-sm text-tinta outline-none focus:border-mantis focus:ring-2 focus:ring-mantis/25"
-            placeholder="••••••••"
-          />
+          <div className="relative mb-6">
+            <input
+              id="password"
+              type={verClave ? "text" : "password"}
+              required
+              autoComplete="current-password"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="min-h-11 w-full rounded-xl border border-tinta/20 bg-white py-2.5 pl-4 pr-11 text-sm text-tinta outline-none focus:border-mantis focus:ring-2 focus:ring-mantis/25"
+              placeholder="••••••••"
+            />
+            <button
+              type="button"
+              onClick={() => setVerClave((v) => !v)}
+              aria-label={verClave ? "Ocultar contraseña" : "Ver contraseña"}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-tinta/50 hover:text-tinta"
+            >
+              {verClave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
 
           <button
             type="submit"
