@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import toast from "react-hot-toast";
 import { trpc } from "@/lib/trpc";
 import { browserSupabase } from "@/lib/supabase-browser";
@@ -90,16 +90,16 @@ export default function FotoAlumno({
         type="button"
         onClick={() => input.current?.click()}
         disabled={subiendo}
-        aria-label={fotoUrl ? "Cambiar foto" : "Agregar foto"}
-        title={fotoUrl ? "Cambiar foto" : "Agregar foto"}
+        aria-label={fotoUrl ? "Elegir otra foto de la galería" : "Elegir foto de la galería"}
+        title={fotoUrl ? "Elegir otra foto de la galería" : "Elegir foto de la galería"}
         className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-papel-claro bg-mantis text-papel shadow transition-colors hover:bg-mantis-dark disabled:opacity-60"
       >
-        <Camera className="h-3.5 w-3.5" />
+        <ImagePlus className="h-3.5 w-3.5" />
       </button>
       <input
         ref={input}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/png,image/webp"
         className="hidden"
         onChange={(e) => elegir(e.target.files?.[0])}
       />
