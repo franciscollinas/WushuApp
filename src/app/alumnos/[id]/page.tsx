@@ -10,9 +10,11 @@ import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { etiquetaCinta, temaCinta } from "@/lib/cinta";
 import KPI from "@/components/ui/KPI";
+import FotoAlumno from "@/components/FotoAlumno";
 
 export default function AlumnoFicha() {
   const { id } = useParams<{ id: string }>();
+  const utils = trpc.useUtils();
   const hoy = new Date();
   const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}`;
   const [mes, setMes] = useState(mesActual);
@@ -143,7 +145,17 @@ export default function AlumnoFicha() {
       </Link>
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="flex items-start gap-4">
+          <FotoAlumno
+            alumnoId={alumno.id}
+            nombre={alumno.nombre}
+            fotoUrl={alumno.foto_url}
+            fondo={temaCinta(alumno.nivel_cinta).fondo}
+            color={temaCinta(alumno.nivel_cinta).texto}
+            onCambio={() => utils.reporte.deAlumno.invalidate()}
+            className="h-20 w-20"
+          />
+          <div>
           <h1 className="text-2xl font-bold text-tinta">{alumno.nombre}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span
@@ -172,6 +184,7 @@ export default function AlumnoFicha() {
               {alumno.peso_kg != null ? ` · ${alumno.peso_kg} kg` : ""}
             </p>
           )}
+          </div>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secundario" onClick={copiarReporte}>

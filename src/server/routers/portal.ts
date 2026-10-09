@@ -30,7 +30,7 @@ export const portalRouter = router({
       admin
         .from("alumno")
         .select(
-          "id, nombre, fecha_nacimiento, categoria, nivel_cinta, estado, fecha_ingreso, created_at, modalidad_pago, acceso_manual, grupo(*)"
+          "id, nombre, foto_url, fecha_nacimiento, categoria, nivel_cinta, estado, fecha_ingreso, created_at, modalidad_pago, acceso_manual, grupo(*)"
         )
         .eq("escuela_id", escuelaId)
         .in("id", ids),
@@ -92,6 +92,7 @@ export const portalRouter = router({
         alumno: {
           id: al.id as string,
           nombre: al.nombre as string,
+          foto_url: (al.foto_url ?? null) as string | null,
           fecha_nacimiento: al.fecha_nacimiento as string | null,
           categoria: al.categoria as string,
           nivel_cinta: al.nivel_cinta as string,

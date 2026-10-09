@@ -818,3 +818,9 @@ $$;
 
 -- ── Valor de la mensualidad ──────────────────────────────────────────────────
 update public.escuela set mensualidad_monto = 80000 where mensualidad_monto = 0;
+
+-- ── Migración 010: foto de perfil del alumno ─────────────────────────────────
+alter table public.alumno add column if not exists foto_url text;
+insert into storage.buckets (id, name, public)
+values ('fotos-alumnos', 'fotos-alumnos', true)
+on conflict (id) do nothing;
