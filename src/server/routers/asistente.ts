@@ -2,6 +2,8 @@ import { z } from "zod";
 import OpenAI from "openai";
 import { supabase } from "@/lib/supabase";
 import { getEscuelaId } from "@/lib/tenant";
+import { calcularEdad } from "@/lib/fechas";
+import { hoyColombia } from "@/lib/padres";
 import { adminProcedure, router } from "../trpc";
 import type { AlumnoRow, EjercicioRow, EventoRow, GrupoConAlumnos, PagoConAlumno } from "@/types/supabase";
 
@@ -225,6 +227,56 @@ const herramientas: Herramienta[] = [
     definicion: {
       type: "function",
       function: {
+        name: "datos_alumnos",
+        description:
+          "Ficha de los alumnos: fecha de nacimiento, edad, categoría, cinta, estado, documento, género, peso, grupo y datos del acudiente. Úsala para preguntas sobre un alumno concreto (por nombre) o sobre edades y cumpleaños. Sin nombre devuelve todos.",
+        parameters: {
+          type: "object",
+          properties: {
+            nombre: { type: "string", description: "Parte del nombre del alumno (opcional)." },
+          },
+        },
+      },
+    },
+    ejecutar: async (args, escuelaId) => {
+      const { data, error } = await supabase
+        .from("alumno")
+        .select(
+          "nombre, estado, fecha_nacimiento, categoria, nivel_cinta, documento, genero, peso_kg, padre_nombre, padre_telefono, modalidad_pago, grupo(nombre)"
+        )
+        .eq("escuela_id", escuelaId)
+        .order("nombre");
+      if (error) return `Error consultando alumnos: ${error.message}`;
+
+      const filtro = typeof args.nombre === "string" ? args.nombre.trim().toLowerCase() : "";
+      const hoy = hoyColombia();
+      const alumnos = (data ?? [])
+        .filter((a) => !filtro || String(a.nombre).toLowerCase().includes(filtro))
+        .map((a) => {
+          const g = Array.isArray(a.grupo) ? a.grupo[0] : a.grupo;
+          return {
+            nombre: a.nombre,
+            estado: a.estado,
+            fecha_nacimiento: a.fecha_nacimiento,
+            edad: calcularEdad(a.fecha_nacimiento, hoy),
+            categoria: a.categoria,
+            cinta: a.nivel_cinta,
+            documento: a.documento,
+            genero: a.genero,
+            peso_kg: a.peso_kg,
+            grupo: (g as { nombre?: string } | null)?.nombre ?? null,
+            acudiente: a.padre_nombre,
+            telefono_acudiente: a.padre_telefono,
+            modalidad_pago: a.modalidad_pago,
+          };
+        });
+      return JSON.stringify({ alumnos });
+    },
+  },
+  {
+    definicion: {
+      type: "function",
+      function: {
         name: "biblioteca_ejercicios",
         description:
           "Ejercicios de la biblioteca para armar planes de clase. Filtrable por categoría (calentamiento, tecnica, fisico, actitud) o dificultad (basica, intermedia, avanzada).",
@@ -332,7 +384,7 @@ const herramientas: Herramienta[] = [
 
 const systemPrompt = `Eres Mantis, el asistente de inteligencia artificial de Mantis Box Sabanalarga, una escuela de artes marciales (estilo Mantis Box / Kung Fu) ubicada en Sabanalarga.
 
-Usas las herramientas disponibles para responder con datos REALES de la escuela (alumnos, grupos, asistencia, pagos, deudas por eventos/préstamos, biblioteca de ejercicios, eventos). Nunca inventes cifras ni nombres: si no encuentras datos, dilo con honestidad y sugiere crearlos.
+Usas las herramientas disponibles para responder con datos REALES de la escuela (alumnos y sus fichas con fecha de nacimiento y edad, grupos, asistencia, pagos, deudas por eventos/préstamos, biblioteca de ejercicios, eventos). Nunca inventes cifras ni nombres: si no encuentras datos, dilo con honestidad y sugiere crearlos.
 
 Reglas:
 - Responde SIEMPRE en español colombiano, claro y directo, como hablándole a un entrenador.
