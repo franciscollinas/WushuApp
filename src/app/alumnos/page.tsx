@@ -5,6 +5,8 @@ import Link from "next/link";
 import toast from "react-hot-toast";
 import { useMemo, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { calcularEdad, fechaCorta } from "@/lib/fechas";
+import { hoyColombia } from "@/lib/padres";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
@@ -290,7 +292,14 @@ export default function AlumnosPage() {
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3 capitalize text-tinta/70">{a.categoria}</td>
+                  <td className="px-4 py-3 capitalize text-tinta/70">
+                    {a.categoria}
+                    {a.fecha_nacimiento && (
+                      <p className="text-xs normal-case text-tinta/40">
+                        {calcularEdad(a.fecha_nacimiento, hoyColombia())} años · {fechaCorta(a.fecha_nacimiento)}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     {sinCinta(a.nivel_cinta) ? (
                       <span className="text-xs text-tinta/60">Sin cinta</span>

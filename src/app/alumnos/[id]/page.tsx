@@ -6,6 +6,8 @@ import { useParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { calcularEdad, fechaCorta } from "@/lib/fechas";
+import { hoyColombia } from "@/lib/padres";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import { etiquetaCinta, temaCinta } from "@/lib/cinta";
@@ -175,6 +177,11 @@ export default function AlumnoFicha() {
           {(alumno.padre_nombre || alumno.padre_telefono) && (
             <p className="mt-2 text-sm text-tinta/50">
               Acudiente: {alumno.padre_nombre ?? "—"} · {alumno.padre_telefono ?? "sin teléfono"}
+            </p>
+          )}
+          {alumno.fecha_nacimiento && (
+            <p className="mt-1 text-sm text-tinta/50">
+              Nacimiento: {fechaCorta(alumno.fecha_nacimiento)} ({calcularEdad(alumno.fecha_nacimiento, hoyColombia())} años)
             </p>
           )}
           {(alumno.documento || alumno.genero || alumno.peso_kg != null) && (
