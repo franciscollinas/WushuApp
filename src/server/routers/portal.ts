@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { hoyColombia } from "@/lib/padres";
 import { alumnoAlDia, mesesDe, mesesDesde, MES_INICIO_APP } from "@/lib/pagos";
 import { mismaCinta } from "@/lib/cinta";
+import { insignias } from "@/lib/xp";
+import { cargarRanking, type FilaRanking } from "../xp-data";
 import { protectedProcedure, router } from "../trpc";
 
 // Portal del padre. Usa service-role porque el RLS ya no deja leer nada de un
@@ -75,6 +77,7 @@ export const portalRouter = router({
     }[];
 
     const fichas = [];
+    let ranking: FilaRanking[] | null = null;
     for (const al of alumnos ?? []) {
       const susPagos = (pagos ?? [])
         .filter((p) => p.alumno_id === al.id && String(p.mes) >= MES_INICIO_APP)
@@ -120,6 +123,7 @@ export const portalRouter = router({
           evaluaciones: [],
           eventos: [],
           ejercicios: [],
+          xp: null,
           recordatorio: null,
         });
         continue;
@@ -182,6 +186,42 @@ export const portalRouter = router({
         pagoMes?.estado !== "pagado" &&
         montoMes > 0;
 
+      // Puntos XP: resumen propio + ranking (nombres cortos, sin datos personales).
+      ranking = ranking ?? (await cargarRanking(escuelaId));
+      const mio = ranking.find((r) => r.alumno_id === al.id);
+      let xp = null;
+      if (mio) {
+        const { data: movs } = await admin
+          .from("xp_movimiento")
+          .select("id, puntos, motivo, fecha")
+          .eq("escuela_id", escuelaId)
+          .eq("alumno_id", al.id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        const top = ranking.slice(0, 5);
+        const lista = top.some((r) => r.alumno_id === mio.alumno_id) ? top : [...top, mio];
+        xp = {
+          total: mio.total,
+          nivel: mio.nivel,
+          xpEnNivel: mio.xpEnNivel,
+          xpParaSiguiente: mio.xpParaSiguiente,
+          asistidas: mio.asistidas,
+          rachaActual: mio.rachaActual,
+          mejorRacha: mio.mejorRacha,
+          posicion: mio.posicion,
+          totalAlumnos: ranking.length,
+          insignias: insignias(mio),
+          movimientos: (movs ?? []) as { id: string; puntos: number; motivo: string; fecha: string }[],
+          ranking: lista.map((r) => ({
+            posicion: r.posicion,
+            nombre: r.nombreCorto,
+            total: r.total,
+            rachaActual: r.rachaActual,
+            esYo: r.alumno_id === mio.alumno_id,
+          })),
+        };
+      }
+
       fichas.push({
         ...base,
         bloqueado: false as const,
@@ -197,6 +237,7 @@ export const portalRouter = router({
         evaluaciones: evaluaciones ?? [],
         eventos,
         ejercicios: susEjercicios,
+        xp,
         recordatorio: debeMesActual
           ? {
               mes: mesActual,

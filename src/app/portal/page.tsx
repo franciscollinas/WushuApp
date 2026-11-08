@@ -7,6 +7,7 @@ import CambiarClave from "@/components/CambiarClave";
 import AvisoPago from "@/components/AvisoPago";
 import BloqueoPago from "@/components/BloqueoPago";
 import FotoAlumno from "@/components/FotoAlumno";
+import XpCard from "@/components/XpCard";
 import { etiquetaCinta, sinCinta, temaCinta } from "@/lib/cinta";
 import { MES_INICIO_APP, nombreMes } from "@/lib/pagos";
 import {
@@ -86,6 +87,7 @@ export default function PortalPadrePage() {
     eventos,
     evaluaciones,
     ejercicios,
+    xp,
   } = fichaActual;
   const tema = temaCinta(alumno.nivel_cinta);
 
@@ -218,6 +220,8 @@ export default function PortalPadrePage() {
           )}
         </div>
       </div>
+
+      {xp && <XpCard xp={xp} nombre={alumno.nombre} />}
 
       {/* Próximos eventos del club */}
       <div className="rounded-2xl border border-tinta/10 bg-papel-claro p-6 shadow-sm">

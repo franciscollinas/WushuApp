@@ -14,6 +14,7 @@ import { usuarioRouter } from "./routers/usuario";
 import { deudaRouter } from "./routers/deuda";
 import { portalRouter } from "./routers/portal";
 import { fotoRouter } from "./routers/foto";
+import { xpRouter } from "./routers/xp";
 
 export const appRouter = router({
   alumno: alumnoRouter,
@@ -31,6 +32,7 @@ export const appRouter = router({
   deuda: deudaRouter,
   portal: portalRouter,
   foto: fotoRouter,
+  xp: xpRouter,
 });
 
 export type AppRouter = typeof appRouter;
