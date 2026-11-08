@@ -14,6 +14,7 @@ import {
   UserCog,
   LogOut,
   CircleDollarSign,
+  Trophy,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,6 +31,7 @@ const NAV_ADMIN = [
   { href: "/pagos", label: "Pagos", icon: Wallet },
   { href: "/deudas", label: "Deudas", icon: CircleDollarSign },
   { href: "/evaluaciones", label: "Evaluaciones", icon: Award },
+  { href: "/puntos", label: "Puntos XP", icon: Trophy },
   { href: "/biblioteca", label: "Biblioteca", icon: BookOpen },
   { href: "/eventos", label: "Eventos", icon: CalendarDays },
   { href: "/asistente", label: "Mantis", icon: Sparkles },
