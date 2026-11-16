@@ -187,39 +187,45 @@ export const portalRouter = router({
         montoMes > 0;
 
       // Puntos XP: resumen propio + ranking (nombres cortos, sin datos personales).
-      ranking = ranking ?? (await cargarRanking(escuelaId));
-      const mio = ranking.find((r) => r.alumno_id === al.id);
+      // Si los puntos fallan (p. ej. tabla sin migrar) el portal igual debe cargar.
       let xp = null;
-      if (mio) {
-        const { data: movs } = await admin
-          .from("xp_movimiento")
-          .select("id, puntos, motivo, fecha")
-          .eq("escuela_id", escuelaId)
-          .eq("alumno_id", al.id)
-          .order("created_at", { ascending: false })
-          .limit(5);
-        const top = ranking.slice(0, 5);
-        const lista = top.some((r) => r.alumno_id === mio.alumno_id) ? top : [...top, mio];
-        xp = {
-          total: mio.total,
-          nivel: mio.nivel,
-          xpEnNivel: mio.xpEnNivel,
-          xpParaSiguiente: mio.xpParaSiguiente,
-          asistidas: mio.asistidas,
-          rachaActual: mio.rachaActual,
-          mejorRacha: mio.mejorRacha,
-          posicion: mio.posicion,
-          totalAlumnos: ranking.length,
-          insignias: insignias(mio),
-          movimientos: (movs ?? []) as { id: string; puntos: number; motivo: string; fecha: string }[],
-          ranking: lista.map((r) => ({
-            posicion: r.posicion,
-            nombre: r.nombreCorto,
-            total: r.total,
-            rachaActual: r.rachaActual,
-            esYo: r.alumno_id === mio.alumno_id,
-          })),
-        };
+      try {
+        ranking = ranking ?? (await cargarRanking(escuelaId));
+        const mio = ranking.find((r) => r.alumno_id === al.id);
+        if (mio) {
+          const { data: movs } = await admin
+            .from("xp_movimiento")
+            .select("id, puntos, motivo, fecha")
+            .eq("escuela_id", escuelaId)
+            .eq("alumno_id", al.id)
+            .order("created_at", { ascending: false })
+            .limit(5);
+          const top = ranking.slice(0, 5);
+          const lista = top.some((r) => r.alumno_id === mio.alumno_id) ? top : [...top, mio];
+          xp = {
+            total: mio.total,
+            nivel: mio.nivel,
+            xpEnNivel: mio.xpEnNivel,
+            xpParaSiguiente: mio.xpParaSiguiente,
+            asistidas: mio.asistidas,
+            rachaActual: mio.rachaActual,
+            mejorRacha: mio.mejorRacha,
+            posicion: mio.posicion,
+            totalAlumnos: ranking.length,
+            insignias: insignias(mio),
+            movimientos: (movs ?? []) as { id: string; puntos: number; motivo: string; fecha: string }[],
+            ranking: lista.map((r) => ({
+              posicion: r.posicion,
+              nombre: r.nombreCorto,
+              total: r.total,
+              rachaActual: r.rachaActual,
+              esYo: r.alumno_id === mio.alumno_id,
+            })),
+          };
+        }
+      } catch (e) {
+        console.error("portal: no se pudieron cargar los puntos XP", e);
+        xp = null;
       }
 
       fichas.push({
